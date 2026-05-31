@@ -1,0 +1,22 @@
+{
+  "n_rows": 6812,
+  "n_days": 1,
+  "protocol": "grouped-by-trip (insufficient days for a temporal split)",
+  "test_auc": 0.9980405707868345,
+  "test_pr_auc": 0.9996123661174304,
+  "test_accuracy": 0.991941391941392,
+  "test_f1": 0.9951944080384447,
+  "baseline_majority_accuracy": 0.8366300366300367,
+  "baseline_routehour_auc": 0.5262422152937574,
+  "on_time_base_rate": 0.7745185848634124,
+  "confusion_matrix": [
+    [
+      215,
+      8
+    ],
+    [
+      3,
+      1139
+    ]
+  ]
+}

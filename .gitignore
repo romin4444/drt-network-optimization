@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# Regenerable pipeline artifacts (rebuilt by run_all.py / drt_pipeline.py)
+drt/schedule_index/
+drt/rt_log/
+drt/features/
+drt/otp_model.txt
+
+# Large / redundant archives (source GTFS lives unzipped in drt/gtfs/)
+*.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local Claude Code settings
+.claude/settings.local.json

@@ -572,14 +572,33 @@ def build_features(date_str: str) -> int:
 # STEP 6 — LightGBM on-time-performance model
 # ================================================================================
 def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2):
-    """Train an OTP classifier on the feature parquet files for the given dates.
+    """Train an OTP classifier and evaluate it honestly against baselines.
 
-    If date_strs is None, uses every feature file found.
-    Returns the trained model and the feature columns.
+    Methodology notes (these are what make the numbers trustworthy):
+      * Three-way split (train/val/test). The validation set drives early
+        stopping; the test set is touched ONCE for final metrics. Using the
+        test set for early stopping (as a naive setup does) leaks it into model
+        selection and inflates the score.
+      * Splits are GROUPED BY trip_id so consecutive stops of one trip never
+        straddle a boundary — otherwise `upstream_delay_sec` leaks the label.
+      * When >= 3 service-days are available the split is TEMPORAL (train on the
+        earliest days, test on the latest) which is the only honest protocol for
+        a forecasting task. With fewer days we fall back to a grouped split and
+        say so loudly.
+      * We report against two baselines (majority-class and route×hour mean) so
+        AUC/accuracy are interpretable. On a ~80% on-time base rate, "always
+        predict on-time" already scores 0.80 accuracy; the model must beat that.
+
+    Returns (model, feature_cols, metrics_dict). metrics_dict is JSON-friendly.
     """
+    import json
+
     import lightgbm as lgb
     from sklearn.model_selection import GroupShuffleSplit
-    from sklearn.metrics import roc_auc_score, classification_report
+    from sklearn.metrics import (
+        roc_auc_score, average_precision_score, accuracy_score, f1_score,
+        confusion_matrix, classification_report,
+    )
 
     if date_strs is None:
         files = sorted(FEAT_DIR.glob("date=*.parquet"))
@@ -588,13 +607,20 @@ def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2):
         files = [f for f in files if f.exists()]
     if not files:
         print("no feature parquet files found — log some RT data first, then run build_features()")
-        return None, None
+        return None, None, None
 
-    df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
-    print(f"Training on {len(df):,} rows from {len(files)} day(s)")
+    dfs = []
+    for f in files:
+        d = pd.read_parquet(f)
+        d["_date"] = f.stem.replace("date=", "")
+        dfs.append(d)
+    df = pd.concat(dfs, ignore_index=True)
+    n_days = df["_date"].nunique()
+    print(f"Training on {len(df):,} rows from {n_days} day(s)")
+    if n_days < 5:
+        print("  WARNING: < 5 days of data. Metrics below are indicative only and "
+              "WILL overfit — collect several weeks before trusting them.")
 
-    # Categorical features are handled natively by LightGBM (no one-hot blow-up,
-    # and no train/inference column-set mismatch).
     cat_cols = ["route_family", "route_id", "direction_id"]
     num_cols = ["hour", "minute", "weekday", "is_weekend", "is_peak_am", "is_peak_pm",
                 "stop_sequence", "frac_of_trip", "upstream_delay_sec"]
@@ -602,33 +628,88 @@ def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2):
     X = df[feature_cols].copy()
     for c in cat_cols:
         X[c] = X[c].astype("category")
-    y = df["on_time"]
+    y = df["on_time"].astype(int)
 
-    # Split by trip_id so consecutive stops of one trip never straddle the
-    # train/test boundary — otherwise upstream_delay_sec leaks the answer.
-    splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=42)
-    tr_idx, te_idx = next(splitter.split(X, y, groups=df["trip_id"]))
-    X_tr, X_te = X.iloc[tr_idx], X.iloc[te_idx]
-    y_tr, y_te = y.iloc[tr_idx], y.iloc[te_idx]
+    # ---- split: temporal when we have enough days, else grouped-by-trip ----
+    def grouped_split(idx, frac):
+        gss = GroupShuffleSplit(n_splits=1, test_size=frac, random_state=42)
+        a, b = next(gss.split(X.iloc[idx], y.iloc[idx], groups=df["trip_id"].iloc[idx]))
+        return idx[a], idx[b]
 
+    all_idx = np.arange(len(df))
+    if n_days >= 3:
+        protocol = "temporal (train=early days, test=latest day)"
+        days = sorted(df["_date"].unique())
+        test_days = {days[-1]}
+        val_days = {days[-2]}
+        te_idx = all_idx[df["_date"].isin(test_days).to_numpy()]
+        va_idx = all_idx[df["_date"].isin(val_days).to_numpy()]
+        tr_idx = all_idx[(~df["_date"].isin(test_days | val_days)).to_numpy()]
+    else:
+        protocol = "grouped-by-trip (insufficient days for a temporal split)"
+        tr_full, te_idx = grouped_split(all_idx, test_size)
+        tr_idx, va_idx = grouped_split(tr_full, 0.2)
+
+    print(f"  Split protocol: {protocol}")
+    print(f"  train={len(tr_idx):,}  val={len(va_idx):,}  test={len(te_idx):,}")
+
+    X_tr, y_tr = X.iloc[tr_idx], y.iloc[tr_idx]
+    X_va, y_va = X.iloc[va_idx], y.iloc[va_idx]
+    X_te, y_te = X.iloc[te_idx], y.iloc[te_idx]
+
+    # ---- baselines (so the model's numbers mean something) ----
+    base_rate = float(y_tr.mean())                       # P(on_time) in train
+    majority = int(base_rate >= 0.5)
+    base_acc = accuracy_score(y_te, np.full(len(y_te), majority))
+    # route x hour historical on-time rate, learned on train, scored on test
+    rh = df.iloc[tr_idx].groupby(["route_id", "hour"])["on_time"].mean()
+    global_rate = base_rate
+    rh_pred = df.iloc[te_idx].apply(
+        lambda r: rh.get((r["route_id"], r["hour"]), global_rate), axis=1).to_numpy()
+    rh_auc = roc_auc_score(y_te, rh_pred) if y_te.nunique() > 1 else float("nan")
+
+    # ---- model ----
     model = lgb.LGBMClassifier(
         n_estimators=500, learning_rate=0.05, max_depth=8,
         num_leaves=63, subsample=0.8, colsample_bytree=0.8,
         class_weight="balanced", random_state=42,
     )
-    model.fit(X_tr, y_tr, eval_set=[(X_te, y_te)],
+    model.fit(X_tr, y_tr, eval_set=[(X_va, y_va)],   # early stop on VAL, not test
               categorical_feature=cat_cols,
               callbacks=[lgb.early_stopping(30, verbose=False)])
 
-    preds  = model.predict_proba(X_te)[:, 1]
-    labels = (preds >= 0.5).astype(int)
-    print(f"\nAUC: {roc_auc_score(y_te, preds):.3f}")
-    print(classification_report(y_te, labels, digits=3))
+    proba = model.predict_proba(X_te)[:, 1]
+    labels = (proba >= 0.5).astype(int)
+    auc = roc_auc_score(y_te, proba) if y_te.nunique() > 1 else float("nan")
+    pr_auc = average_precision_score(y_te, proba) if y_te.nunique() > 1 else float("nan")
+    acc = accuracy_score(y_te, labels)
+    f1 = f1_score(y_te, labels, zero_division=0)
+    cm = confusion_matrix(y_te, labels).tolist()
+
+    print("\n--- TEST-SET RESULTS (touched once) ---")
+    print(f"  Model      : AUC={auc:.3f}  PR-AUC={pr_auc:.3f}  acc={acc:.3f}  f1={f1:.3f}")
+    print(f"  Baseline 1 : majority-class acc={base_acc:.3f}  (on-time base rate={base_rate:.3f})")
+    print(f"  Baseline 2 : route-x-hour mean AUC={rh_auc:.3f}")
+    lift = acc - base_acc
+    print(f"  Lift over majority baseline: {lift:+.3f} accuracy")
+    print(f"  Confusion matrix [[TN,FP],[FN,TP]]: {cm}")
+    print("\n" + classification_report(y_te, labels, digits=3, zero_division=0))
 
     model_path = DATA_DIR / "otp_model.txt"
     model.booster_.save_model(str(model_path))
-    print(f"Model saved to {model_path}")
-    return model, feature_cols
+    metrics = {
+        "n_rows": int(len(df)), "n_days": int(n_days), "protocol": protocol,
+        "test_auc": float(auc), "test_pr_auc": float(pr_auc),
+        "test_accuracy": float(acc), "test_f1": float(f1),
+        "baseline_majority_accuracy": float(base_acc),
+        "baseline_routehour_auc": float(rh_auc),
+        "on_time_base_rate": float(base_rate),
+        "confusion_matrix": cm,
+    }
+    (DATA_DIR / "otp_metrics.json").write_text(json.dumps(metrics, indent=2))
+    print(f"\nModel saved to {model_path}")
+    print(f"Metrics saved to {DATA_DIR / 'otp_metrics.json'}")
+    return model, feature_cols, metrics
 
 
 def explain_model(model, feature_cols, sample_size: int = 5000):
