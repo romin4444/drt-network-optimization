@@ -9,8 +9,9 @@ Covers, in one file:
   5. New-route scoring against DRT service standards
   6. JSON bundle export for the interactive map
 
-All numbers are computed from the real DRT GTFS feed. Nothing is hard-coded.
-Run:  python3 route_design.py
+Service standards, geo/time helpers, and the weekday-service selector all come
+from drt_config (the single source of truth) so this module can't drift from the
+optimizer/equity layers. Run:  python3 route_design.py
 """
 import json
 import math
@@ -18,42 +19,15 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-GTFS = Path(__file__).parent / "drt" / "gtfs"
-OUT = Path(__file__).parent / "drt" / "map_data"
-OUT.mkdir(exist_ok=True)
+import drt_config as cfg
+from drt_config import (
+    STANDARDS, PULSE_ROUTES, shape_length_km, t_to_sec,
+    current_weekday_services, haversine_km as haversine,
+)
 
-# ----- DRT published service standards (verified from DRT Service Guidelines) -----
-STANDARDS = {
-    "pulse_min_freq": 15,        # PULSE minimum headway (min), peak/midday
-    "base_min_freq": 30,         # Base minimum headway
-    "frequent_target": 15,       # Frequent Network target headway
-    "speed_min": 22,             # below this on a non-PULSE route flags route deviation
-    "cov_frequent": 0.21,        # TCQSM LOS A regularity
-    "cov_base": 0.30,            # acceptable regularity for base
-    "stops_per_km_arterial": 2.5,
-    "stops_per_km_pulse": 2.0,
-    "coverage_walk_m": 400,      # walk-distance buffer for "covered"
-    "on_demand_convert": 8,      # boardings/hr threshold to graduate OnDemand -> fixed
-}
-PULSE_ROUTES = {"900", "901", "915", "916"}  # verified roster (+902 being added)
-
-R = 6371.0
-def haversine(lat1, lon1, lat2, lon2):
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dl = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
-    return 2 * R * math.asin(math.sqrt(a))
-
-def shape_length_km(pts):
-    return sum(haversine(pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1])
-               for i in range(len(pts)-1))
-
-def t_to_sec(t):
-    if pd.isna(t) or t == "":
-        return np.nan
-    h, m, s = map(int, str(t).split(":"))
-    return h*3600 + m*60 + s
+GTFS = cfg.GTFS_DIR
+OUT = cfg.MAP_DATA
+OUT.mkdir(parents=True, exist_ok=True)
 
 
 def load():
@@ -63,24 +37,6 @@ def load():
             pd.read_csv(GTFS/"stops.txt", dtype=str),
             pd.read_csv(GTFS/"shapes.txt"),
             pd.read_csv(GTFS/"calendar.txt", dtype=str))
-
-
-def current_weekday_services(calendar):
-    """Service IDs for the *current* weekday schedule period only.
-
-    GTFS feeds carry several sequential schedule versions. Counting trips across
-    all of them double-counts service that never runs at the same time. Keep only
-    services whose start_date is the most recent and that run on a weekday (this
-    also picks up the overnight service, which covers weekday nights).
-    """
-    cal = calendar.copy()
-    cal["start_date"] = cal["start_date"].astype(int)
-    weekday_mask = cal[["monday", "tuesday", "wednesday", "thursday", "friday"]].eq("1").any(axis=1)
-    wd = cal[weekday_mask]
-    if wd.empty:
-        return []
-    latest = wd["start_date"].max()
-    return wd[wd["start_date"] == latest]["service_id"].astype(str).tolist()
 
 
 def route_scorecard(routes, trips, st, stops, shapes, calendar):
@@ -138,9 +94,10 @@ def route_scorecard(routes, trips, st, stops, shapes, calendar):
         
         # headways computed by grouping by service_id and direction_id to avoid overlap
         hw_gaps = []
+        peak_gaps = []   # gaps within the AM/PM peak windows only -> sizes the fleet
         covs = []
         peaks = []
-        
+
         starts_df = pd.DataFrame(trip_starts)
         if not starts_df.empty:
             for (sid_val, dirn_val), g in starts_df.groupby(["service_id", "direction_id"]):
@@ -148,15 +105,23 @@ def route_scorecard(routes, trips, st, stops, shapes, calendar):
                 s = starts[(starts >= 6 * 3600) & (starts <= 21 * 3600)]
                 if len(s) < 3:
                     continue
-                gaps = np.diff(np.sort(s)) / 60.0
+                s = np.sort(s)
+                gaps = np.diff(s) / 60.0
                 if len(gaps) == 0:
                     continue
                 hw_gaps.extend(gaps)
+                # a gap "is peak" if its departure starts inside an AM/PM peak window
+                h = s[:-1] / 3600.0
+                in_peak = ((h >= 7) & (h < 9)) | ((h >= 16) & (h < 18))
+                peak_gaps.extend(gaps[in_peak])
                 covs.append(float(np.std(gaps)/np.mean(gaps)) if np.mean(gaps)>0 else np.nan)
                 peaks.append(float((((s / 3600) >= 7) & ((s / 3600) < 10) | ((s / 3600) >= 16) & ((s / 3600) < 19)).mean()))
-        
+
         med_hw = float(np.median(hw_gaps)) if len(hw_gaps) else np.nan
         p90_hw = float(np.percentile(hw_gaps, 90)) if len(hw_gaps) else np.nan
+        # Peak (tightest) headway: the typical gap during the peaks, which is what
+        # the fleet must actually cover. Falls back to median if no peak gaps.
+        peak_hw = float(np.median(peak_gaps)) if len(peak_gaps) else med_hw
         cov = float(np.nanmean(covs)) if covs else np.nan
         peak_share = float(np.nanmean(peaks)) if peaks else np.nan
         svc_hours = len(durs)*avg_dur/60.0
@@ -169,6 +134,7 @@ def route_scorecard(routes, trips, st, stops, shapes, calendar):
             avg_speed_kmh=round(speed,1), avg_distance_km=round(avg_dist,1),
             avg_n_stops=round(avg_stops,1), stops_per_km=round(spk,2),
             median_headway_min=round(med_hw,1) if not np.isnan(med_hw) else None,
+            peak_headway_min=round(peak_hw,1) if not np.isnan(peak_hw) else None,
             p90_headway_min=round(p90_hw,1) if not np.isnan(p90_hw) else None,
             headway_cov=round(cov,2) if not np.isnan(cov) else None,
             peak_trip_share=round(peak_share,2), weekday_service_hours=round(svc_hours,1),
@@ -179,36 +145,46 @@ def route_scorecard(routes, trips, st, stops, shapes, calendar):
 
 
 def classify(is_pulse, med_hw, peak_share, cov, ntrips):
-    """Assign A/B/C/D diagnostic bucket per the efficiency framework."""
+    """Assign A/B/C/D diagnostic bucket per the efficiency framework.
+
+    Headway/CoV may be NaN (too few trips to compute). Use pd.isna() — the old
+    `med_hw is None` guards never fired because the value is np.nan, not None,
+    so marginal no-headway routes silently fell through instead of landing in D.
+    """
+    hw_unknown = pd.isna(med_hw)
+    cov_unknown = pd.isna(cov)
     if is_pulse:
-        if med_hw and med_hw <= 15:
+        if not hw_unknown and med_hw <= 15:
             return "A", "Frequent backbone - protect & invest, tighten regularity"
         return "A", "PULSE corridor - lift to true 15-min all-day standard"
-    if ntrips <= 30 and (med_hw is None or med_hw >= 30):
+    if ntrips <= 30 and (hw_unknown or med_hw >= 30):
         return "D", "Marginal - candidate for On Demand conversion"
-    if med_hw and med_hw <= 20 and (cov is None or cov <= 0.35):
+    if not hw_unknown and med_hw <= 20 and (cov_unknown or cov <= 0.35):
         return "B", "Frequent candidate - promote to 15-min, consolidate stops"
-    if peak_share >= 0.6 and (cov and cov >= 0.45):
+    if not pd.isna(peak_share) and peak_share >= 0.6 and (not cov_unknown and cov >= 0.45):
         return "C", "Coverage commuter - cut to peak-only or interline for 15-min combined"
     return "B", "Stable base route - retime if CoV high, else maintain"
 
 
 def extract_geometries(routes, trips, shapes, scorecard):
-    """One representative (longest) shape per route, with route metadata."""
+    """One representative (longest, by actual distance) shape per route."""
     rmeta = routes.set_index("route_id")[["route_long_name","route_short_name"]].to_dict("index")
     sc = scorecard.set_index("route_id").to_dict("index")
-    shp_pts = {}
+    shp_pts, shp_km = {}, {}
     for sid, g in shapes.groupby("shape_id"):
         g = g.sort_values("shape_pt_sequence")
-        shp_pts[sid] = list(zip(g["shape_pt_lat"].round(5), g["shape_pt_lon"].round(5)))
+        pts = list(zip(g["shape_pt_lat"].round(5), g["shape_pt_lon"].round(5)))
+        shp_pts[sid] = pts
+        shp_km[sid] = shape_length_km(pts)   # length in km, not point count
 
     feats = []
     for rid, rg in trips.groupby("route_id"):
         if rid not in sc:   # only scored (weekday) routes
             continue
-        # longest shape = most complete representation
+        # longest by route-km = most complete representation (a windy short route
+        # can have more points than a long straight one, so point count is wrong)
         shape_ids = rg["shape_id"].dropna().unique()
-        best = max(shape_ids, key=lambda s: len(shp_pts.get(s, [])), default=None)
+        best = max(shape_ids, key=lambda s: shp_km.get(s, 0.0), default=None)
         if not best or best not in shp_pts:
             continue
         info = sc[rid]
@@ -228,8 +204,14 @@ def extract_geometries(routes, trips, shapes, scorecard):
     return feats
 
 
-def service_gaps(stops, boarding_csv=None, grid_km=0.5):
-    """Find grid cells with no stop within the walk buffer (rough coverage gap proxy)."""
+def service_gaps(stops, boarding_csv=None, grid_km=0.5, max_gap_km=5.0):
+    """Find grid cells beyond the walk buffer of any stop (coverage-gap proxy).
+
+    Cells are flagged when the nearest stop is between the walk buffer (~400 m)
+    and `max_gap_km`. The upper bound exists only to drop cells that are almost
+    certainly outside the service area entirely (lakes, far rural land); it is a
+    parameter, not a hidden 1.5 km cliff that silently dropped real gaps.
+    """
     s = stops.copy()
     s["stop_lat"] = s["stop_lat"].astype(float)
     s["stop_lon"] = s["stop_lon"].astype(float)
@@ -240,6 +222,7 @@ def service_gaps(stops, boarding_csv=None, grid_km=0.5):
     dlat = grid_km/111.0
     dlon = grid_km/(111.0*math.cos(math.radians((lat0+lat1)/2)))
     stop_pts = s[["stop_lat","stop_lon"]].values
+    walk_km = STANDARDS["coverage_walk_m"]/1000.0
     gaps = []
     la = lat0
     while la < lat1:
@@ -248,7 +231,7 @@ def service_gaps(stops, boarding_csv=None, grid_km=0.5):
             # distance to nearest stop
             d = np.min(np.sqrt(((stop_pts[:,0]-la)*111.0)**2 +
                                ((stop_pts[:,1]-lo)*111.0*math.cos(math.radians(la)))**2))
-            if STANDARDS["coverage_walk_m"]/1000.0 < d < 1.5:  # 400m-1.5km from any stop = gap
+            if walk_km < d < max_gap_km:
                 gaps.append([round(la,5), round(lo,5), round(d,2)])
             lo += dlon
         la += dlat
@@ -308,33 +291,36 @@ def main():
 
     print("Detecting service gaps...")
     gaps = service_gaps(stops)
-    print(f"  {len(gaps)} gap cells (400m-1.5km from nearest stop)")
+    print(f"  {len(gaps)} gap cells (beyond a 400 m walk from any stop)")
 
-    boarding = Path(__file__).parent / "TRNST_Bus_Boarding_Points.csv"
+    boarding = cfg.BOARDING_CSV
     print("Finding On Demand conversion candidates...")
     od = on_demand_candidates(boarding)
     print(f"  {len(od)} dense On Demand clusters (>=8 stops/km cell)")
-
-    # Worked example: proposed Route 910 Oshawa-Ajax frequent corridor
-    # (representative coords sampled along the Oshawa->Ajax arterial)
-    route910 = [[43.897,-78.86],[43.90,-78.90],[43.91,-78.94],[43.92,-78.98],
-                [43.93,-79.02],[43.94,-79.03],[43.95,-79.02]]
-    r910 = score_new_route(route910, stop_count=28, cycle_min=52, vehicles=4, route_class="base")
 
     bundle = dict(
         scorecard=sc.to_dict("records"),
         geometries=geoms,
         gaps=gaps,
         on_demand_clusters=od,
-        proposed_route_910=r910,
+        proposed_route_910=demo_proposed_route(),   # clearly-labelled showcase
         standards=STANDARDS,
         bucket_counts=sc["bucket"].value_counts().to_dict(),
     )
     (OUT/"route_bundle.json").write_text(json.dumps(bundle))
     sc.to_csv(OUT/"route_scorecard.csv", index=False)
     print(f"\nWrote {OUT/'route_bundle.json'}")
-    print(f"Proposed Route 910 grade: {r910['grade']} ({r910['passes']}/3 standards)")
     return bundle
+
+
+def demo_proposed_route() -> dict:
+    """SHOWCASE ONLY (not part of the feed analysis): score a hypothetical
+    Route 910 Oshawa->Ajax frequent corridor against the standards, to
+    demonstrate score_new_route(). Hard-coded coords are illustrative."""
+    route910 = [[43.897,-78.86],[43.90,-78.90],[43.91,-78.94],[43.92,-78.98],
+                [43.93,-79.02],[43.94,-79.03],[43.95,-79.02]]
+    return score_new_route(route910, stop_count=28, cycle_min=52,
+                           vehicles=4, route_class="base")
 
 
 if __name__ == "__main__":

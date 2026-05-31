@@ -12,4 +12,5 @@ lightgbm>=4.0
 scikit-learn>=1.3
 shap>=0.43             # optional: explain_model()
 
-# Tests use the stdlib (unittest); pytest is optional.
+# Tests (pytest is the standard runner; the suite also runs under `python test_drt.py`)
+pytest>=7.0

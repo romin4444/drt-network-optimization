@@ -53,20 +53,28 @@ def coverage_criticality() -> pd.DataFrame:
     lat = stops["lat"].to_numpy()
     lon = stops["lon"].to_numpy()
     route_sets = stops["routes"].tolist()
-
-    # For each stop, does any *other* route have a stop within the walk buffer?
-    # Vectorised distance from each stop to all stops (1969 x 1969 is fine).
     n = len(stops)
+
+    # For each stop, do all stops within the walk buffer carry only this stop's
+    # own route(s)? If so the stop is "uniquely covered". Use a BallTree
+    # (haversine) for an O(n log n) radius query instead of the O(n^2) loop;
+    # fall back to brute force if scikit-learn isn't installed.
+    try:
+        from sklearn.neighbors import BallTree
+        coords_rad = np.radians(np.c_[lat, lon])
+        tree = BallTree(coords_rad, metric="haversine")
+        neigh = tree.query_radius(coords_rad, r=walk_km / cfg.EARTH_R_KM)
+    except Exception:
+        neigh = []
+        for i in range(n):
+            d = cfg.haversine_km(lat[i], lon[i], lat, lon)
+            neigh.append(np.flatnonzero(d <= walk_km))
+
     unique_flags = np.zeros(n, dtype=bool)
     for i in range(n):
-        d = cfg.haversine_km(lat[i], lon[i], lat, lon)
-        near = d <= walk_km
-        # routes available within the buffer, other than this stop's own routes
         near_routes: set = set()
-        for j in np.flatnonzero(near):
+        for j in neigh[i]:
             near_routes |= route_sets[j]
-        # stop is "uniquely covered" by route r if no near stop carries a
-        # different route — i.e. all nearby service is the same route(s)
         unique_flags[i] = len(near_routes - route_sets[i]) == 0
     stops["unique"] = unique_flags
 
@@ -112,9 +120,9 @@ def coverage_criticality() -> pd.DataFrame:
     out = out.merge(amen, on="route_id", how="left")
 
     def tier(u):
-        if u >= 0.65:
+        if u >= cfg.LIFELINE_THRESHOLD:
             return "LIFELINE (preserve coverage)"
-        if u >= 0.40:
+        if u >= cfg.PARTIAL_UNIQUE_THRESHOLD:
             return "PARTIAL-UNIQUE (right-size, don't delete)"
         return "REDUNDANT (safe to restructure)"
     out["coverage_tier"] = out["unique_coverage"].map(tier)
@@ -131,8 +139,10 @@ def main():
     print("=" * 70)
     print(df.to_string(index=False))
     print(f"\nWrote {out}")
-    print(f"\nLIFELINE routes (do NOT convert to on-demand): "
-          f"{', '.join(df[df.unique_coverage >= 0.5]['route_id'].tolist()) or 'none'}")
+    lifelines = df[df.unique_coverage >= cfg.LIFELINE_THRESHOLD]["route_id"].tolist()
+    print(f"\nLIFELINE routes (do NOT convert to on-demand, "
+          f"unique_coverage >= {cfg.LIFELINE_THRESHOLD}): "
+          f"{', '.join(lifelines) or 'none'}")
     return df
 
 

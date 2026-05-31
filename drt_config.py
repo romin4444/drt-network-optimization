@@ -49,6 +49,12 @@ STANDARDS = {
 
 PULSE_ROUTES = {"900", "901", "915", "916"}  # verified roster (+902 being added)
 
+# A route is "lifeline" (protect from on-demand conversion) when this fraction
+# of its stops have no other route within the walk buffer. Single source of
+# truth so equity.py and the optimizer can't disagree (they used to: 0.5 vs 0.65).
+LIFELINE_THRESHOLD = 0.65
+PARTIAL_UNIQUE_THRESHOLD = 0.40
+
 # On-time-performance window (seconds relative to schedule)
 OTP_EARLY_SEC = -60     # earlier than this = "early" (bad)
 OTP_LATE_SEC = 300      # later than this = "late" (bad)
@@ -63,8 +69,13 @@ FLEET = {
     # need recovery time at terminals; 0 recovery understates the fleet).
     "recovery_factor": 0.12,         # +12% of running time, industry typical
     "spare_ratio": 0.20,             # spare buses held against the peak fleet
-    "service_span_hr": 18.0,         # ~05:00-23:00 weekday span
+    "service_span_hr": 18.0,         # ~05:00-23:00 weekday span (all-day buses)
+    "peak_span_hr": 6.0,             # ~3h AM + 3h PM (buses added only for peak)
     "annual_service_days": 254,      # weekday-equivalent operating days
+    # When a fixed route converts to on-demand, the zone still needs vehicles to
+    # run microtransit. We assume it needs this fraction of the route's peak
+    # fleet — so freed buses are NOT counted as fully available elsewhere.
+    "on_demand_vehicle_ratio": 0.5,
 }
 
 COST = {
@@ -123,23 +134,45 @@ def t_to_sec(t):
     return h * 3600 + m * 60 + s
 
 
-def current_weekday_services(calendar: pd.DataFrame) -> list[str]:
-    """Service IDs for the *current* weekday schedule period only.
+def current_weekday_services(calendar: pd.DataFrame, target_date=None) -> list[str]:
+    """Weekday service IDs that are actually *active on a given date*.
 
     GTFS ships several sequential schedule versions; summing trips across all of
-    them double-counts service that never runs concurrently. Keep only services
-    whose start_date is the most recent and that run on a weekday (this also
-    picks up the overnight service covering weekday nights).
+    them double-counts service that never runs concurrently. The correct filter
+    is "services whose [start_date, end_date] window brackets the target date" —
+    NOT merely "the most recent start_date", which can select a future schedule
+    period that the agency has pre-loaded but isn't running yet.
+
+    `target_date` accepts a date/datetime/'YYYY-MM-DD'/'YYYYMMDD' (default: today).
+    Robust to whether calendar was read with str or int dtypes.
+
+    Note: this selects the regular weekly pattern. Holiday add/remove exceptions
+    live in calendar_dates.txt and are applied per-day in the schedule indexer
+    (_service_days), not here.
     """
     cal = calendar.copy()
     cal["start_date"] = cal["start_date"].astype(int)
+    cal["end_date"] = cal["end_date"].astype(int)
     dow = ["monday", "tuesday", "wednesday", "thursday", "friday"]
-    mask = cal[dow].astype(str).eq("1").any(axis=1)
-    wd = cal[mask]
+    # astype(str).eq("1") normalises 1 (int) and "1" (str) identically.
+    weekday = cal[dow].astype(str).eq("1").any(axis=1)
+
+    if target_date is None:
+        target = int(pd.Timestamp.today().strftime("%Y%m%d"))
+    else:
+        target = int(pd.Timestamp(str(target_date)).strftime("%Y%m%d"))
+
+    active = (cal["start_date"] <= target) & (cal["end_date"] >= target)
+    wd = cal[weekday & active]
     if wd.empty:
-        return []
-    latest = wd["start_date"].max()
-    return wd[wd["start_date"] == latest]["service_id"].astype(str).tolist()
+        # Target falls outside every window (e.g. analysing an archived feed):
+        # fall back to the most recent weekday period so we still return something.
+        wk = cal[weekday]
+        if wk.empty:
+            return []
+        latest = wk["start_date"].max()
+        wd = wk[wk["start_date"] == latest]
+    return wd["service_id"].astype(str).tolist()
 
 
 def route_family(route_id) -> str:

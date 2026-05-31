@@ -27,28 +27,53 @@ OUTPUT = cfg.MAP_DATA / "route_optimization_scorecard.csv"
 
 
 def peak_vehicles(cycle_min: float, headway_min: float) -> int:
-    """Buses needed to hold a headway on a round-trip cycle, incl. recovery."""
-    if headway_min is None or headway_min <= 0 or np.isnan(headway_min):
+    """Buses needed to hold a headway on a round-trip cycle, incl. recovery.
+
+    `headway_min` must be the PEAK (tightest) headway — that's what sizes the
+    fleet. Feeding it the median headway (as the first version did) understates
+    the requirement on routes that run more frequently at peak.
+    """
+    if headway_min is None or headway_min <= 0 or (isinstance(headway_min, float) and np.isnan(headway_min)):
         return 0
     eff_cycle = cycle_min * (1.0 + cfg.FLEET["recovery_factor"])
     return max(1, int(np.ceil(eff_cycle / headway_min)))
 
 
-def annual_operating_cost(vehicles: int, headway_min: float) -> float:
-    """Rough annual operating $ for running `vehicles` over the service span."""
-    if vehicles <= 0:
+def annual_operating_cost(rev_hours: float, rate: float | None = None) -> float:
+    """Annual operating $ for a given number of annual revenue vehicle-hours.
+
+    Costing on *revenue-hours* (not vehicles × full span) avoids the old bug of
+    assuming every bus runs the full 18-hour day. `rate` defaults to the fixed-
+    route operating rate; pass the on-demand rate for microtransit.
+    """
+    if rev_hours <= 0:
         return 0.0
-    rev_hours = vehicles * cfg.FLEET["service_span_hr"] * cfg.FLEET["annual_service_days"]
-    return rev_hours * cfg.COST["operating_per_rev_hr"]
+    rate = cfg.COST["operating_per_rev_hr"] if rate is None else rate
+    return rev_hours * rate
 
 
-def optimize() -> pd.DataFrame:
-    if not SCORECARD.exists():
-        raise SystemExit(f"{SCORECARD} not found. Run route_design.py first.")
-    df = pd.read_csv(SCORECARD)
+def annual_rev_hours(svc_hours_per_weekday: float) -> float:
+    """Convert scheduled weekday service-hours into annual revenue vehicle-hours."""
+    return svc_hours_per_weekday * cfg.FLEET["annual_service_days"]
+
+
+def optimize(scorecard: pd.DataFrame | None = None,
+             equity_df: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Build the costed service plan.
+
+    Frames can be injected (for tests); by default the scorecard is read from
+    disk and equity criticality is computed from the GTFS feed.
+    """
+    if scorecard is None:
+        if not SCORECARD.exists():
+            raise SystemExit(f"{SCORECARD} not found. Run route_design.py first.")
+        scorecard = pd.read_csv(SCORECARD)
+    df = scorecard.copy()
 
     # Equity / coverage criticality, merged per route.
-    eq = equity.coverage_criticality()[["route_id", "unique_coverage", "coverage_tier"]]
+    if equity_df is None:
+        equity_df = equity.coverage_criticality()
+    eq = equity_df[["route_id", "unique_coverage", "coverage_tier"]].copy()
     df["route_id"] = df["route_id"].astype(str)
     eq["route_id"] = eq["route_id"].astype(str)
     df = df.merge(eq, on="route_id", how="left")
@@ -61,6 +86,9 @@ def optimize() -> pd.DataFrame:
         avg_n_stops = float(r["avg_n_stops"])
         stops_per_km = float(r["stops_per_km"])
         med_hw = float(r["median_headway_min"]) if pd.notna(r["median_headway_min"]) else np.nan
+        # Peak headway sizes the fleet; fall back to median if the column is absent
+        # (older scorecard) or null.
+        peak_hw = float(r["peak_headway_min"]) if ("peak_headway_min" in r and pd.notna(r["peak_headway_min"])) else med_hw
         trips = int(r["weekday_trips"])
         svc_hours = float(r["weekday_service_hours"])
         tier = str(r.get("coverage_tier", "")) or "REDUNDANT (safe to restructure)"
@@ -68,7 +96,7 @@ def optimize() -> pd.DataFrame:
 
         avg_dur = (svc_hours * 60.0) / trips if trips > 0 else 0.0
         current_rt_cycle = 2.0 * avg_dur
-        active_vehicles = peak_vehicles(current_rt_cycle, med_hw) or 1
+        active_vehicles = peak_vehicles(current_rt_cycle, peak_hw) or 1
 
         # ---- target service category ----
         if bucket == "A":
@@ -92,9 +120,18 @@ def optimize() -> pd.DataFrame:
         tt_reduction_pct = (time_saved_min / current_rt_cycle * 100.0) if current_rt_cycle > 0 else 0.0
 
         # ---- fleet plan + equity guard ----
+        # Operating cost is based on actual scheduled service-hours, not
+        # vehicles x full-day span (peak buses don't run all day).
+        op_now = annual_operating_cost(annual_rev_hours(svc_hours))
+        on_demand = False
         if target_hw > 0:
             required = peak_vehicles(optimized_rt_cycle, target_hw)
             net = max(0, required - active_vehicles)
+            # Tightening headway from current->target scales service-hours up
+            # proportionally (twice as frequent ~= twice the revenue-hours).
+            freq_mult = (peak_hw / target_hw) if (not np.isnan(peak_hw) and target_hw > 0) else 1.0
+            freq_mult = max(1.0, freq_mult)
+            op_future = annual_operating_cost(annual_rev_hours(svc_hours * freq_mult))
             action = f"Optimize speed ({tt_reduction_pct:.1f}% saved)"
             action += f" & add {net} bus(es)" if net > 0 else " (fleet sufficient)"
         elif is_lifeline:
@@ -103,16 +140,20 @@ def optimize() -> pd.DataFrame:
             net = 0
             category = "Coverage Lifeline (PROTECT)"
             target_hw = med_hw if not np.isnan(med_hw) else cfg.STANDARDS["base_min_freq"]
+            op_future = op_now
             action = ("Marginal ridership BUT lifeline coverage "
                       f"(unique={r.get('unique_coverage')}); right-size/retime, do NOT delete")
         else:
-            required = 0
-            net = -active_vehicles
-            action = "Convert to On-Demand; reallocate freed vehicles to frequent corridors"
+            # On-demand conversion still CONSUMES vehicles (microtransit isn't
+            # free) — so we free only some buses, and we cost the on-demand hours.
+            on_demand = True
+            required = max(1, int(np.ceil(active_vehicles * cfg.FLEET["on_demand_vehicle_ratio"])))
+            net = required - active_vehicles   # negative => frees (active - required)
+            od_rev_hours = required * cfg.FLEET["service_span_hr"] * cfg.FLEET["annual_service_days"]
+            op_future = annual_operating_cost(od_rev_hours, rate=cfg.COST["on_demand_per_hr"])
+            action = (f"Convert to On-Demand ({required} microtransit veh); "
+                      f"frees {active_vehicles - required} bus(es) for frequent corridors")
 
-        # ---- costs ----
-        op_now = annual_operating_cost(active_vehicles, med_hw)
-        op_future = annual_operating_cost(required, target_hw if target_hw > 0 else med_hw)
         annual_op_delta = op_future - op_now
         capital_cost = max(0, net) * cfg.COST["bus_capital"]
         annualized = max(0, net) * cfg.annualized_bus_capital() + annual_op_delta
@@ -127,7 +168,9 @@ def optimize() -> pd.DataFrame:
             "stops_to_consolidate_rt": round(2.0 * consolidated, 1),
             "round_trip_time_saved_min": round(time_saved_min, 1),
             "current_headway_min": round(med_hw, 1) if pd.notna(med_hw) else np.nan,
+            "peak_headway_min": round(peak_hw, 1) if pd.notna(peak_hw) else np.nan,
             "target_headway_min": target_hw if target_hw > 0 else np.nan,
+            "is_on_demand": on_demand,
             "current_vehicles": active_vehicles, "required_vehicles": required,
             "net_new_buses_needed": net,
             "capital_cost_cad": round(capital_cost),
@@ -141,14 +184,21 @@ def optimize() -> pd.DataFrame:
 
 
 def summarize(opt: pd.DataFrame) -> dict:
+    # Freed buses already net out the microtransit vehicles on-demand still needs
+    # (net_new_buses_needed for an on-demand route = on_demand_veh - active < 0).
     freed = -opt[opt["net_new_buses_needed"] < 0]["net_new_buses_needed"].sum()
     needed = opt[opt["net_new_buses_needed"] > 0]["net_new_buses_needed"].sum()
     net_buy = max(0, needed - freed)
-    spare = int(np.ceil(opt["required_vehicles"].sum() * cfg.FLEET["spare_ratio"]))
+    # required_vehicles counts both conventional buses and microtransit vehicles;
+    # report conventional separately so the spare calc isn't inflated by vans.
+    conventional_required = int(opt.loc[~opt.get("is_on_demand", False).astype(bool),
+                                        "required_vehicles"].sum()) if "is_on_demand" in opt else int(opt["required_vehicles"].sum())
+    spare = int(np.ceil(conventional_required * cfg.FLEET["spare_ratio"]))
     return {
         "routes": len(opt),
         "fleet_now": int(opt["current_vehicles"].sum()),
         "fleet_required": int(opt["required_vehicles"].sum()),
+        "conventional_required": conventional_required,
         "spare_buses": spare,
         "buses_freed": int(freed),
         "buses_needed": int(needed),

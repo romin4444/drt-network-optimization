@@ -1,39 +1,39 @@
-route_id,category,coverage_tier,unique_coverage,weekday_trips,current_speed_kmh,optimized_speed_kmh,stops_per_km,stops_to_consolidate_rt,round_trip_time_saved_min,current_headway_min,target_headway_min,current_vehicles,required_vehicles,net_new_buses_needed,capital_cost_cad,annual_operating_delta_cad,annualized_cost_cad,action_plan
-N1,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.411,31,38.5,38.4,1.87,0.0,0.0,,30.0,1,6,5,3750000,3086100,3398600,Optimize speed (0.0% saved) & add 5 bus(es)
-121,Frequent Candidate,LIFELINE (preserve coverage),0.671,68,27.8,27.8,2.12,0.0,0.0,30.0,15.0,3,6,3,2250000,1851660,2039160,Optimize speed (0.0% saved) & add 3 bus(es)
-916,Frequent Backbone,"PARTIAL-UNIQUE (right-size, don't delete)",0.417,108,30.4,30.4,2.2,0.0,0.0,20.0,15.0,7,9,2,1500000,1234440,1359440,Optimize speed (0.0% saved) & add 2 bus(es)
-915,Frequent Backbone,"PARTIAL-UNIQUE (right-size, don't delete)",0.445,106,32.9,32.9,1.77,0.0,0.0,20.0,15.0,7,9,2,1500000,1234440,1359440,Optimize speed (0.0% saved) & add 2 bus(es)
-405,Frequent Candidate,REDUNDANT (safe to restructure),0.351,66,28.9,29.2,2.58,2.5,0.8,30.0,15.0,3,5,2,1500000,1234440,1359440,Optimize speed (1.3% saved) & add 2 bus(es)
-224,Frequent Candidate,REDUNDANT (safe to restructure),0.392,68,27.6,28.6,2.74,6.7,2.2,30.0,15.0,3,5,2,1500000,1234440,1359440,Optimize speed (3.6% saved) & add 2 bus(es)
-N2,Base Coverage / Commuter,REDUNDANT (safe to restructure),0.312,37,33.1,33.0,2.1,0.0,0.0,,30.0,1,3,2,1500000,1234440,1359440,Optimize speed (0.0% saved) & add 2 bus(es)
-410,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.422,74,27.3,31.1,3.31,21.0,7.0,30.0,15.0,3,4,1,750000,617220,679720,Optimize speed (12.4% saved) & add 1 bus(es)
-423,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.512,54,28.9,31.5,3.01,14.0,4.7,30.0,15.0,3,4,1,750000,617220,679720,Optimize speed (8.0% saved) & add 1 bus(es)
-319,Frequent Candidate,LIFELINE (preserve coverage),0.72,56,31.6,31.8,2.53,0.4,0.1,30.0,15.0,2,3,1,750000,617220,679720,Optimize speed (0.3% saved) & add 1 bus(es)
-301,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.593,53,32.7,33.3,2.59,1.6,0.5,30.0,15.0,2,3,1,750000,617220,679720,Optimize speed (1.4% saved) & add 1 bus(es)
-392,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.6,53,24.0,24.4,2.66,1.0,0.3,30.0,15.0,1,2,1,750000,617220,679720,Optimize speed (2.1% saved) & add 1 bus(es)
-917,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.51,86,26.1,26.0,2.02,0.0,0.0,30.0,30.0,5,5,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-302,Base Coverage / Commuter,LIFELINE (preserve coverage),0.654,85,30.8,30.8,1.98,0.0,0.0,30.0,30.0,4,4,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-407,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.421,67,28.2,28.2,2.27,0.0,0.0,30.0,30.0,4,4,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-421,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.596,57,27.4,27.4,2.02,0.0,0.0,30.0,30.0,4,4,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-216,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.472,101,26.5,28.1,2.9,9.4,3.1,16.0,15.0,4,4,0,0,0,0,Optimize speed (5.9% saved) (fleet sufficient)
-502,Base Coverage / Commuter,LIFELINE (preserve coverage),0.794,66,29.7,29.8,1.9,0.0,0.0,30.0,30.0,3,3,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-403,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.646,87,28.9,28.8,2.33,0.0,0.0,30.0,30.0,2,2,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-409,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.416,65,31.7,31.6,1.85,0.0,0.0,30.0,30.0,3,3,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-112,Base Coverage / Commuter,LIFELINE (preserve coverage),0.717,56,35.2,35.3,1.57,0.0,0.0,30.0,30.0,3,3,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-419,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.588,65,23.3,23.2,1.93,0.0,0.0,30.0,30.0,2,2,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-118,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.5,55,35.6,35.6,1.31,0.0,0.0,30.0,30.0,2,2,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
-211,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.689,26,27.6,27.7,2.53,0.6,0.2,30.0,30.0,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.689); right-size/retime, do NOT delete"
-505,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.792,30,26.4,26.4,1.38,0.0,0.0,30.0,30.0,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.792); right-size/retime, do NOT delete"
-605,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.846,21,25.9,26.2,2.61,2.5,0.8,44.0,44.0,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.846); right-size/retime, do NOT delete"
-507,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.966,12,42.0,42.2,0.87,0.0,0.0,60.0,60.0,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.966); right-size/retime, do NOT delete"
-101,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.87,16,29.3,29.4,2.43,0.0,0.0,30.0,30.0,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.87); right-size/retime, do NOT delete"
-901,Frequent Backbone,REDUNDANT (safe to restructure),0.289,200,22.7,22.7,2.35,0.0,0.0,10.0,15.0,7,5,0,0,-1234440,-1234440,Optimize speed (0.0% saved) (fleet sufficient)
-902,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.407,96,25.0,25.0,1.94,0.0,0.0,20.0,30.0,7,5,0,0,-1234440,-1234440,Optimize speed (0.0% saved) (fleet sufficient)
-900,Frequent Backbone,REDUNDANT (safe to restructure),0.397,167,27.6,27.6,1.96,0.0,0.0,12.0,15.0,12,9,0,0,-1851660,-1851660,Optimize speed (0.0% saved) (fleet sufficient)
-920,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.515,101,31.2,31.2,1.54,0.0,0.0,20.0,30.0,9,6,0,0,-1851660,-1851660,Optimize speed (0.0% saved) (fleet sufficient)
-921,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.641,39,33.7,33.8,0.72,0.0,0.0,20.0,30.0,9,6,0,0,-1851660,-1851660,Optimize speed (0.0% saved) (fleet sufficient)
-905,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.63,117,32.7,32.7,1.9,0.0,0.0,15.0,30.0,8,4,0,0,-2468880,-2468880,Optimize speed (0.0% saved) (fleet sufficient)
-315,Marginal (On-Demand candidate),"PARTIAL-UNIQUE (right-size, don't delete)",0.6,11,29.8,30.3,2.01,0.0,0.0,30.0,,1,0,-1,0,-617220,-617220,Convert to On-Demand; reallocate freed vehicles to frequent corridors
-618,Marginal (On-Demand candidate),"PARTIAL-UNIQUE (right-size, don't delete)",0.636,18,47.1,47.1,0.46,0.0,0.0,90.0,,3,0,-3,0,-1851660,-1851660,Convert to On-Demand; reallocate freed vehicles to frequent corridors
-306,Marginal (On-Demand candidate),"PARTIAL-UNIQUE (right-size, don't delete)",0.615,12,31.4,31.1,2.0,0.0,0.0,30.0,,3,0,-3,0,-1851660,-1851660,Convert to On-Demand; reallocate freed vehicles to frequent corridors
-227,Marginal (On-Demand candidate),"PARTIAL-UNIQUE (right-size, don't delete)",0.62,25,25.5,25.5,2.38,0.0,0.0,30.0,,4,0,-4,0,-2468880,-2468880,Convert to On-Demand; reallocate freed vehicles to frequent corridors
+route_id,category,coverage_tier,unique_coverage,weekday_trips,current_speed_kmh,optimized_speed_kmh,stops_per_km,stops_to_consolidate_rt,round_trip_time_saved_min,current_headway_min,peak_headway_min,target_headway_min,is_on_demand,current_vehicles,required_vehicles,net_new_buses_needed,capital_cost_cad,annual_operating_delta_cad,annualized_cost_cad,action_plan
+N1,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.411,31,38.5,38.4,1.87,0.0,0.0,,,30.0,False,1,6,5,3750000,0,312500,Optimize speed (0.0% saved) & add 5 bus(es)
+121,Frequent Candidate,LIFELINE (preserve coverage),0.671,68,27.8,27.8,2.12,0.0,0.0,30.0,30.0,15.0,False,3,6,3,2250000,1474470,1661970,Optimize speed (0.0% saved) & add 3 bus(es)
+916,Frequent Backbone,"PARTIAL-UNIQUE (right-size, don't delete)",0.417,108,30.4,30.4,2.2,0.0,0.0,20.0,20.0,15.0,False,7,9,2,1500000,1221867,1346867,Optimize speed (0.0% saved) & add 2 bus(es)
+405,Frequent Candidate,REDUNDANT (safe to restructure),0.351,66,28.9,29.2,2.58,2.5,0.8,30.0,30.0,15.0,False,3,5,2,1500000,1200150,1325150,Optimize speed (1.3% saved) & add 2 bus(es)
+224,Frequent Candidate,REDUNDANT (safe to restructure),0.392,68,27.6,28.6,2.74,6.7,2.2,30.0,30.0,15.0,False,3,5,2,1500000,1193292,1318292,Optimize speed (3.6% saved) & add 2 bus(es)
+915,Frequent Backbone,"PARTIAL-UNIQUE (right-size, don't delete)",0.445,106,32.9,32.9,1.77,0.0,0.0,20.0,20.0,15.0,False,7,9,2,1500000,1152144,1277144,Optimize speed (0.0% saved) & add 2 bus(es)
+N2,Base Coverage / Commuter,REDUNDANT (safe to restructure),0.312,37,33.1,33.0,2.1,0.0,0.0,,,30.0,False,1,3,2,1500000,0,125000,Optimize speed (0.0% saved) & add 2 bus(es)
+410,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.422,74,27.3,31.1,3.31,21.0,7.0,30.0,30.0,15.0,False,3,4,1,750000,1193292,1255792,Optimize speed (12.4% saved) & add 1 bus(es)
+423,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.512,54,28.9,31.5,3.01,14.0,4.7,30.0,30.0,15.0,False,3,4,1,750000,894969,957469,Optimize speed (8.0% saved) & add 1 bus(es)
+319,Frequent Candidate,LIFELINE (preserve coverage),0.72,56,31.6,31.8,2.53,0.4,0.1,30.0,30.0,15.0,False,2,3,1,750000,630936,693436,Optimize speed (0.3% saved) & add 1 bus(es)
+301,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.593,53,32.7,33.3,2.59,1.6,0.5,30.0,31.0,15.0,False,2,3,1,750000,625450,687950,Optimize speed (1.4% saved) & add 1 bus(es)
+392,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.6,53,24.0,24.4,2.66,1.0,0.3,30.0,30.0,15.0,False,1,2,1,750000,243459,305959,Optimize speed (2.1% saved) & add 1 bus(es)
+315,Marginal (On-Demand candidate),"PARTIAL-UNIQUE (right-size, don't delete)",0.6,11,29.8,30.3,2.01,0.0,0.0,30.0,30.0,,True,1,1,0,0,365760,365760,Convert to On-Demand (1 microtransit veh); frees 0 bus(es) for frequent corridors
+900,Frequent Backbone,REDUNDANT (safe to restructure),0.397,167,27.6,27.6,1.96,0.0,0.0,12.0,12.0,15.0,False,12,9,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+920,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.515,101,31.2,31.2,1.54,0.0,0.0,20.0,20.0,30.0,False,9,6,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+901,Frequent Backbone,REDUNDANT (safe to restructure),0.289,200,22.7,22.7,2.35,0.0,0.0,10.0,10.0,15.0,False,7,5,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+905,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.63,117,32.7,32.7,1.9,0.0,0.0,15.0,15.0,30.0,False,8,4,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+902,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.407,96,25.0,25.0,1.94,0.0,0.0,20.0,20.0,30.0,False,7,5,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+917,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.51,86,26.1,26.0,2.02,0.0,0.0,30.0,30.0,30.0,False,5,5,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+302,Base Coverage / Commuter,LIFELINE (preserve coverage),0.654,85,30.8,30.8,1.98,0.0,0.0,30.0,25.0,30.0,False,5,4,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+921,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.641,39,33.7,33.8,0.72,0.0,0.0,20.0,20.0,30.0,False,9,6,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+407,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.421,67,28.2,28.2,2.27,0.0,0.0,30.0,30.0,30.0,False,4,4,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+421,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.596,57,27.4,27.4,2.02,0.0,0.0,30.0,30.0,30.0,False,4,4,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+216,Frequent Candidate,"PARTIAL-UNIQUE (right-size, don't delete)",0.472,101,26.5,28.1,2.9,9.4,3.1,16.0,15.0,15.0,False,4,4,0,0,0,0,Optimize speed (5.9% saved) (fleet sufficient)
+502,Base Coverage / Commuter,LIFELINE (preserve coverage),0.794,66,29.7,29.8,1.9,0.0,0.0,30.0,29.0,30.0,False,3,3,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+403,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.646,87,28.9,28.8,2.33,0.0,0.0,30.0,20.0,30.0,False,3,2,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+409,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.416,65,31.7,31.6,1.85,0.0,0.0,30.0,30.0,30.0,False,3,3,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+112,Base Coverage / Commuter,LIFELINE (preserve coverage),0.717,56,35.2,35.3,1.57,0.0,0.0,30.0,30.0,30.0,False,3,3,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+419,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.588,65,23.3,23.2,1.93,0.0,0.0,30.0,30.0,30.0,False,2,2,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+118,Base Coverage / Commuter,"PARTIAL-UNIQUE (right-size, don't delete)",0.5,55,35.6,35.6,1.31,0.0,0.0,30.0,30.0,30.0,False,2,2,0,0,0,0,Optimize speed (0.0% saved) (fleet sufficient)
+211,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.689,26,27.6,27.7,2.53,0.6,0.2,30.0,30.0,30.0,False,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.689); right-size/retime, do NOT delete"
+505,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.792,30,26.4,26.4,1.38,0.0,0.0,30.0,30.0,30.0,False,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.792); right-size/retime, do NOT delete"
+605,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.846,21,25.9,26.2,2.61,2.5,0.8,44.0,45.0,44.0,False,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.846); right-size/retime, do NOT delete"
+507,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.966,12,42.0,42.2,0.87,0.0,0.0,60.0,60.0,60.0,False,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.966); right-size/retime, do NOT delete"
+101,Coverage Lifeline (PROTECT),LIFELINE (preserve coverage),0.87,16,29.3,29.4,2.43,0.0,0.0,30.0,30.0,30.0,False,2,2,0,0,0,0,"Marginal ridership BUT lifeline coverage (unique=0.87); right-size/retime, do NOT delete"
+306,Marginal (On-Demand candidate),"PARTIAL-UNIQUE (right-size, don't delete)",0.615,12,31.4,31.1,2.0,0.0,0.0,30.0,30.0,,True,3,2,-1,0,683514,683514,Convert to On-Demand (2 microtransit veh); frees 1 bus(es) for frequent corridors
+618,Marginal (On-Demand candidate),"PARTIAL-UNIQUE (right-size, don't delete)",0.636,18,47.1,47.1,0.46,0.0,0.0,90.0,91.5,,True,3,2,-1,0,-187452,-187452,Convert to On-Demand (2 microtransit veh); frees 1 bus(es) for frequent corridors
+227,Marginal (On-Demand candidate),"PARTIAL-UNIQUE (right-size, don't delete)",0.62,25,25.5,25.5,2.38,0.0,0.0,30.0,30.0,,True,4,2,-2,0,196596,196596,Convert to On-Demand (2 microtransit veh); frees 2 bus(es) for frequent corridors

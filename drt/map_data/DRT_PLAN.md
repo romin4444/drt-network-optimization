@@ -13,24 +13,24 @@ _Generated 2026-05-31 from the live Durham GTFS feed._
 - Diagnostic buckets: A=4, B=24, C=1, D=9
 
 ## 3. Fleet & budget plan
-- Peak fleet: **145 → 140** buses (+28 spares @ 20%)
-- Buses freed by on-demand conversion: **11**
+- Peak fleet: **147 → 147** buses (+28 spares @ 20%)
+- Buses freed by on-demand conversion: **4**
 - Buses needed for frequency upgrades: **23**
-- **Net new buses to purchase: 12**
-- Capital cost (net new fleet): **$9,000,000**
-- Annual operating cost change: **$-3,086,100/yr**
+- **Net new buses to purchase: 19**
+- Capital cost (net new fleet): **$14,250,000**
+- Annual operating cost change: **$10,888,447/yr**
 
 ### Top corridors requiring investment
 | Route | Category | Headway now→target | New buses | Capital | Annualized |
 |---|---|---|---|---|---|
-| N1 | Base Coverage / Commuter | —→30 min | 5 | $3,750,000 | $3,398,600 |
-| 121 | Frequent Candidate | 30→15 min | 3 | $2,250,000 | $2,039,160 |
-| 916 | Frequent Backbone | 20→15 min | 2 | $1,500,000 | $1,359,440 |
-| 915 | Frequent Backbone | 20→15 min | 2 | $1,500,000 | $1,359,440 |
-| 405 | Frequent Candidate | 30→15 min | 2 | $1,500,000 | $1,359,440 |
-| 224 | Frequent Candidate | 30→15 min | 2 | $1,500,000 | $1,359,440 |
-| N2 | Base Coverage / Commuter | —→30 min | 2 | $1,500,000 | $1,359,440 |
-| 410 | Frequent Candidate | 30→15 min | 1 | $750,000 | $679,720 |
+| N1 | Base Coverage / Commuter | —→30 min | 5 | $3,750,000 | $312,500 |
+| 121 | Frequent Candidate | 30→15 min | 3 | $2,250,000 | $1,661,970 |
+| 916 | Frequent Backbone | 20→15 min | 2 | $1,500,000 | $1,346,867 |
+| 405 | Frequent Candidate | 30→15 min | 2 | $1,500,000 | $1,325,150 |
+| 224 | Frequent Candidate | 30→15 min | 2 | $1,500,000 | $1,318,292 |
+| 915 | Frequent Backbone | 20→15 min | 2 | $1,500,000 | $1,277,144 |
+| N2 | Base Coverage / Commuter | —→30 min | 2 | $1,500,000 | $125,000 |
+| 410 | Frequent Candidate | 30→15 min | 1 | $750,000 | $1,255,792 |
 
 ## 4. Equity guard
 The optimizer flagged marginal routes for on-demand conversion, but **5 routes were protected** as lifeline coverage (the only service within a 400 m walk for most of their stops). Deleting these would create coverage holes, not just frequency cuts.
@@ -43,7 +43,7 @@ The optimizer flagged marginal routes for on-demand conversion, but **5 routes w
 | 507 | 97% | Right-size / retime — do **not** delete |
 | 101 | 87% | Right-size / retime — do **not** delete |
 
-Cleared for on-demand conversion: **315, 618, 306, 227** (freeing 11 buses).
+Cleared for on-demand conversion: **315, 306, 618, 227** (freeing 4 buses).
 
 ## 5. Speed gains via stop consolidation (no new buses)
 | Route | Stops/km | Stops to cut (RT) | Time saved | Speed |

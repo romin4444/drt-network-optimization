@@ -1,7 +1,7 @@
 {
   "n_rows": 6812,
   "n_days": 1,
-  "protocol": "grouped-by-trip (insufficient days for a temporal split)",
+  "protocol": "grouped-by-trip (1 days < 14 needed for temporal)",
   "test_auc": 0.9980405707868345,
   "test_pr_auc": 0.9996123661174304,
   "test_accuracy": 0.991941391941392,

@@ -57,6 +57,14 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
+# Single source of truth: geo/time helpers, route_family and the weekday-service
+# selector all come from drt_config so this file can't drift from the planning
+# modules. (This is what makes the "single source of truth" claim actually true.)
+from drt_config import (
+    t_to_sec, haversine_km, route_family, current_weekday_services,
+    OTP_EARLY_SEC as OTP_EARLY, OTP_LATE_SEC as OTP_LATE,
+)
+
 
 # ================================================================================
 # CONFIG — change DATA_DIR if you mounted Google Drive
@@ -98,59 +106,9 @@ def colab_setup():
 
 
 # ================================================================================
-# HELPERS
+# HELPERS — t_to_sec, haversine_km, route_family, current_weekday_services are
+# imported from drt_config (single source of truth). See imports at the top.
 # ================================================================================
-def t_to_sec(t: str):
-    """Parse HH:MM:SS (which may exceed 24:00:00 in GTFS) to seconds since midnight.
-
-    Returns NaN for blank/missing values instead of raising, so feeds with
-    empty arrival/departure times (common for non-timepoint stops) don't crash
-    the pipeline.
-    """
-    if t is None or (isinstance(t, float) and math.isnan(t)) or str(t).strip() == "":
-        return np.nan
-    h, m, s = map(int, str(t).split(":"))
-    return h * 3600 + m * 60 + s
-
-
-def current_weekday_services(calendar: pd.DataFrame) -> list[str]:
-    """Service IDs for the *current* weekday schedule period.
-
-    GTFS feeds ship several sequential schedule versions (e.g. an expiring
-    period and the upcoming one). Summing trips across all of them double-counts
-    service that never runs concurrently. We keep only services whose start_date
-    is the most recent and that operate on at least one weekday (this also picks
-    up the overnight service, which covers weekday nights).
-    """
-    cal = calendar.copy()
-    cal["start_date"] = cal["start_date"].astype(int)
-    weekday_mask = cal[["monday", "tuesday", "wednesday", "thursday", "friday"]].eq(1).any(axis=1)
-    wk = cal[weekday_mask]
-    if wk.empty:
-        return []
-    latest = wk["start_date"].max()
-    return wk[wk["start_date"] == latest]["service_id"].astype(str).tolist()
-
-
-def haversine_km(lat1, lon1, lat2, lon2):
-    """Vectorised great-circle distance in km."""
-    R = 6371.0
-    p1, p2 = np.radians(lat1), np.radians(lat2)
-    dp, dl = np.radians(lat2 - lat1), np.radians(lon2 - lon1)
-    a = np.sin(dp / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(dl / 2) ** 2
-    return 2 * R * np.arcsin(np.sqrt(a))
-
-
-def route_family(route_id) -> str:
-    r = str(route_id)
-    if r.startswith("N"):
-        return "night"
-    d = r[0] if r and r[0].isdigit() else "?"
-    return {
-        "1": "Pickering", "2": "Ajax", "3": "Whitby", "4": "Oshawa",
-        "5": "Clarington", "6": "Rural", "9": "PULSE/Regional",
-    }.get(d, "other")
-
 
 # ================================================================================
 # STEP 1 — Extract / download the static GTFS
@@ -240,12 +198,16 @@ def build_schedule_index():
         subset = st[st["service_id"].isin(sids)]
         if subset.empty:
             continue
-        midnight = datetime(d.year, d.month, d.day, tzinfo=TZ)
-        mid_unix = int(midnight.timestamp())
+        # GTFS service times are defined relative to "noon minus 12h", NOT
+        # wall-clock midnight, precisely so DST transitions don't shift them.
+        # Anchoring on noon (always unambiguous) and subtracting 12h keeps trips
+        # after the 02:00 DST boundary correct on the two transition days a year.
+        noon = datetime(d.year, d.month, d.day, 12, tzinfo=TZ)
+        service_midnight_unix = int(noon.timestamp()) - 12 * 3600
         day_df = subset.copy()
         day_df["service_date"]       = d.isoformat()
-        day_df["scheduled_arr_unix"] = mid_unix + day_df["arr_sec"]
-        day_df["scheduled_dep_unix"] = mid_unix + day_df["dep_sec"]
+        day_df["scheduled_arr_unix"] = service_midnight_unix + day_df["arr_sec"]
+        day_df["scheduled_dep_unix"] = service_midnight_unix + day_df["dep_sec"]
         day_df[keep].to_parquet(
             INDEX_DIR / f"date={d.isoformat()}.parquet",
             index=False, compression="snappy",
@@ -260,101 +222,41 @@ def build_schedule_index():
 # STEP 3 — Baseline schedule-only analysis
 # ================================================================================
 def baseline_analysis(show: bool = True) -> pd.DataFrame:
-    """Per-route diagnostics. Uses only the static GTFS; no RT data required."""
-    routes     = pd.read_csv(GTFS_DIR / "routes.txt")
-    trips      = pd.read_csv(GTFS_DIR / "trips.txt")
-    stop_times = pd.read_csv(GTFS_DIR / "stop_times.txt")
-    calendar   = pd.read_csv(GTFS_DIR / "calendar.txt")
-    shapes     = pd.read_csv(GTFS_DIR / "shapes.txt")
+    """Per-route diagnostics from the static GTFS (no RT data required).
 
-    # Trip duration in seconds
-    stop_times["arr_sec"] = stop_times["arrival_time"].apply(t_to_sec)
+    There is now ONE scorecard computation in the repo: route_design.route_scorecard.
+    This used to be a second, independent implementation whose "avg speed" was a
+    mean-of-ratios while route_design used a ratio-of-means, so the two CSVs
+    disagreed for the same route. We delegate to route_design here so
+    baseline_report.csv and the canonical route_scorecard.csv can never diverge.
+    """
+    import route_design
 
-    # Compute shape distance via haversine summation
-    shapes = shapes.sort_values(["shape_id", "shape_pt_sequence"]).reset_index(drop=True)
-    shapes["lat2"] = shapes.groupby("shape_id")["shape_pt_lat"].shift(-1)
-    shapes["lon2"] = shapes.groupby("shape_id")["shape_pt_lon"].shift(-1)
-    shapes["seg_km"] = haversine_km(
-        shapes["shape_pt_lat"], shapes["shape_pt_lon"], shapes["lat2"], shapes["lon2"],
-    )
-    shape_dist = shapes.groupby("shape_id")["seg_km"].sum().rename("distance_km").reset_index()
+    routes   = pd.read_csv(GTFS_DIR / "routes.txt", dtype=str)
+    trips    = pd.read_csv(GTFS_DIR / "trips.txt", dtype=str)
+    st       = pd.read_csv(GTFS_DIR / "stop_times.txt", dtype={"trip_id": str, "stop_id": str})
+    stops    = pd.read_csv(GTFS_DIR / "stops.txt", dtype=str)
+    shapes   = pd.read_csv(GTFS_DIR / "shapes.txt")
+    calendar = pd.read_csv(GTFS_DIR / "calendar.txt", dtype=str)
 
-    trip_spans = (
-        stop_times.groupby("trip_id")
-        .agg(start_sec=("arr_sec", "min"), end_sec=("arr_sec", "max"),
-             n_stops=("stop_id", "count"))
-        .reset_index()
-    )
-    trip_spans["duration_min"] = (trip_spans["end_sec"] - trip_spans["start_sec"]) / 60
-    trip_spans = trip_spans.merge(
-        trips[["trip_id", "route_id", "service_id", "direction_id", "shape_id"]], on="trip_id",
-    ).merge(shape_dist, on="shape_id", how="left")
-    trip_spans["speed_kmh"] = trip_spans["distance_km"] / (trip_spans["duration_min"] / 60)
-
-    weekday_sids = current_weekday_services(calendar)
-    wk = trip_spans[trip_spans["service_id"].astype(str).isin(weekday_sids)].copy()
-
-    agg = (
-        wk.groupby("route_id")
-        .agg(weekday_trips=("trip_id", "count"),
-             avg_duration_min=("duration_min", "mean"),
-             avg_distance_km=("distance_km", "mean"),
-             avg_n_stops=("n_stops", "mean"),
-             avg_speed_kmh=("speed_kmh", "mean"))
-        .round(2).reset_index()
-    )
-    agg["stops_per_km"]          = (agg["avg_n_stops"] / agg["avg_distance_km"]).round(2)
-    agg["weekday_service_hours"] = (agg["weekday_trips"] * agg["avg_duration_min"] / 60).round(1)
-
-    # Headway regularity in the 06:00-21:00 window
-    hw_rows = []
-    for r in agg["route_id"]:
-        sub = wk[wk["route_id"] == r].sort_values(["direction_id", "start_sec"])
-        for dirn, g in sub.groupby("direction_id"):
-            starts = g["start_sec"].values
-            s = starts[(starts >= 6 * 3600) & (starts <= 21 * 3600)]
-            if len(s) < 3:
-                continue
-            gaps = np.diff(np.sort(s)) / 60
-            hw_rows.append({
-                "route_id": r, "direction_id": dirn,
-                "median_headway_min": float(np.median(gaps)),
-                "headway_cov": float(np.std(gaps) / np.mean(gaps)) if np.mean(gaps) > 0 else None,
-            })
-    hw = pd.DataFrame(hw_rows)
-    if not hw.empty:
-        hw_summary = hw.groupby("route_id").agg(
-            median_headway_min=("median_headway_min", "mean"),
-            headway_cov=("headway_cov", "mean"),
-        ).round(2)
-        agg = agg.merge(hw_summary, on="route_id", how="left")
-
-    # Peak share
-    def peak_share(r):
-        sub = wk[wk["route_id"] == r]
-        if sub.empty:
-            return None
-        h = sub["start_sec"] / 3600
-        return round((((h >= 7) & (h < 10)) | ((h >= 16) & (h < 19))).mean(), 3)
-    agg["peak_trip_share"] = agg["route_id"].map(peak_share)
-
+    agg, svc = route_design.route_scorecard(routes, trips, st, stops, shapes, calendar)
+    agg = agg.copy()
     agg["region"] = agg["route_id"].astype(str).map(route_family)
-    agg = agg.sort_values("weekday_service_hours", ascending=False).reset_index(drop=True)
     agg.to_csv(REPORT_CSV, index=False)
 
     if show:
         print("=" * 78)
-        print("BASELINE SCHEDULE ANALYSIS")
+        print("BASELINE SCHEDULE ANALYSIS  (canonical scorecard via route_design)")
         print("=" * 78)
         print(f"  Routes:               {agg['route_id'].nunique()}")
-        print(f"  Weekday trips:        {len(wk):,}")
+        print(f"  Weekday trips:        {int(agg['weekday_trips'].sum()):,}")
         print(f"  Service-hours/weekday:{agg['weekday_service_hours'].sum():.0f}")
         print(f"  Median speed:         {agg['avg_speed_kmh'].median():.1f} km/h")
         print("\n--- Top 10 routes by weekday service hours ---")
         cols = ["route_id", "region", "weekday_trips", "weekday_service_hours",
                 "avg_speed_kmh", "median_headway_min", "headway_cov", "peak_trip_share"]
         print(agg.head(10)[cols].to_string(index=False))
-        print(f"\nFull report: {REPORT_CSV}")
+        print(f"\nFull report: {REPORT_CSV}  (same numbers as route_scorecard.csv)")
     return agg
 
 
@@ -429,15 +331,50 @@ def _tu_to_rows(msg):
 
 
 def _append_parquet(rows, kind):
+    """Append one poll as a NEW small parquet shard.
+
+    The original version re-read and rewrote the entire day's file on every
+    20-second poll — O(polls^2) I/O and ever-growing memory, which falls over on
+    exactly the multi-week Pi/VPS collection it was meant for. Writing one shard
+    per poll into a per-day directory is O(1) per poll; readers use the directory
+    as a dataset (pandas/pyarrow read all shards transparently). See
+    consolidate_rt_log() to compact shards after collection.
+    """
     if not rows:
         return
     df = pd.DataFrame(rows)
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    path = RT_LOG_DIR / f"date={today}" / f"{kind}.parquet"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        df = pd.concat([pd.read_parquet(path), df], ignore_index=True)
-    df.to_parquet(path, index=False, compression="snappy")
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    part_dir = RT_LOG_DIR / f"date={today}" / kind
+    part_dir.mkdir(parents=True, exist_ok=True)
+    shard = part_dir / f"{now.strftime('%H%M%S')}_{now.microsecond:06d}.parquet"
+    df.to_parquet(shard, index=False, compression="snappy")
+
+
+def _read_rt_partition(date_str: str, kind: str) -> pd.DataFrame:
+    """Read an RT partition whether it's a single file (legacy) or a shard dir."""
+    legacy = RT_LOG_DIR / f"date={date_str}" / f"{kind}.parquet"
+    shard_dir = RT_LOG_DIR / f"date={date_str}" / kind
+    frames = []
+    if legacy.exists():
+        frames.append(pd.read_parquet(legacy))
+    if shard_dir.is_dir():
+        shards = sorted(shard_dir.glob("*.parquet"))
+        if shards:
+            frames.append(pd.concat([pd.read_parquet(s) for s in shards], ignore_index=True))
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
+
+
+def consolidate_rt_log(date_str: str, kind: str) -> int:
+    """Compact a day's per-poll shards into one parquet file (run post-collection)."""
+    df = _read_rt_partition(date_str, kind)
+    if df.empty:
+        return 0
+    out = RT_LOG_DIR / f"date={date_str}" / f"{kind}.parquet"
+    df.to_parquet(out, index=False, compression="snappy")
+    return len(df)
 
 
 def run_logger(interval: int = 20, duration_min: int | None = None,
@@ -520,10 +457,10 @@ def build_features(date_str: str) -> int:
         return 0
     sched = pd.read_parquet(sched_path)
 
-    vp_path = RT_LOG_DIR / f"date={date_str}" / "vehicle_positions.parquet"
-    tu_path = RT_LOG_DIR / f"date={date_str}" / "trip_updates.parquet"
-    actuals_vp = _detect_arrivals_from_vp(pd.read_parquet(vp_path)) if vp_path.exists() else pd.DataFrame()
-    actuals_tu = _actuals_from_tu(pd.read_parquet(tu_path)) if tu_path.exists() else pd.DataFrame()
+    vp_raw = _read_rt_partition(date_str, "vehicle_positions")
+    tu_raw = _read_rt_partition(date_str, "trip_updates")
+    actuals_vp = _detect_arrivals_from_vp(vp_raw) if not vp_raw.empty else pd.DataFrame()
+    actuals_tu = _actuals_from_tu(tu_raw) if not tu_raw.empty else pd.DataFrame()
     if not actuals_tu.empty:
         actuals = actuals_tu
         if not actuals_vp.empty:
@@ -542,10 +479,34 @@ def build_features(date_str: str) -> int:
         actuals[["trip_id", "stop_id", "stop_sequence", "actual_arr_unix", "vehicle_id"]],
         on=["trip_id", "stop_id", "stop_sequence"], how="inner",
     )
+
+    # Guard the fragile exact-key join: warn if it collapsed (RT trip_ids not
+    # matching the static feed, or current_stop_sequence missing/misaligned is
+    # common in real feeds). A near-empty join is a red flag, not a clean run.
+    match_rate = len(joined) / max(1, len(actuals))
+    if joined.empty or match_rate < 0.05:
+        print(f"WARNING {date_str}: RT<->schedule join matched only {len(joined)} of "
+              f"{len(actuals)} actuals ({match_rate:.1%}). Check trip_id alignment "
+              f"between the RT feed and the static schedule.")
+        if joined.empty:
+            return 0
+
+    # Drop rows with no scheduled time (blank/non-timepoint stops): without a
+    # schedule, delay is undefined and astype(int) of a NaN comparison would
+    # silently label them 'not on time', poisoning the training set.
+    before = len(joined)
+    joined = joined.dropna(subset=["scheduled_arr_unix", "actual_arr_unix"])
+    dropped = before - len(joined)
+    if dropped:
+        print(f"  dropped {dropped} rows with no scheduled time before labelling")
+    if joined.empty:
+        print(f"no labelled rows on {date_str}")
+        return 0
+
     joined["delay_sec"] = joined["actual_arr_unix"] - joined["scheduled_arr_unix"]
-    joined["on_time"]     = ((joined["delay_sec"] >= -60) & (joined["delay_sec"] <= 300)).astype(int)
-    joined["late_label"]  = (joined["delay_sec"] >  300).astype(int)
-    joined["early_label"] = (joined["delay_sec"] < -60 ).astype(int)
+    joined["on_time"]     = ((joined["delay_sec"] >= OTP_EARLY) & (joined["delay_sec"] <= OTP_LATE)).astype(int)
+    joined["late_label"]  = (joined["delay_sec"] >  OTP_LATE).astype(int)
+    joined["early_label"] = (joined["delay_sec"] <  OTP_EARLY).astype(int)
 
     ts = pd.to_datetime(joined["scheduled_arr_unix"], unit="s", utc=True).dt.tz_convert("America/Toronto")
     joined["hour"]       = ts.dt.hour
@@ -637,16 +598,29 @@ def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2):
         return idx[a], idx[b]
 
     all_idx = np.arange(len(df))
-    if n_days >= 3:
-        protocol = "temporal (train=early days, test=latest day)"
+    # Only use a temporal protocol once there are enough days for each split to
+    # be substantial (>= 14 => roughly >=10 train / 2 val / 2 test days). With
+    # exactly 3 days the old code produced a 1/1/1-day split, which contradicts
+    # the "< 5 days will overfit" warning above. To avoid trip-memorisation via
+    # the route_id/trip_id categoricals, recurring trip_ids are kept on ONE side
+    # of the boundary in BOTH protocols.
+    TEMPORAL_MIN_DAYS = 14
+    if n_days >= TEMPORAL_MIN_DAYS:
+        protocol = "temporal (early days train, last ~2 test) + trip-disjoint"
         days = sorted(df["_date"].unique())
-        test_days = {days[-1]}
-        val_days = {days[-2]}
+        n_test = max(1, n_days // 7)
+        test_days = set(days[-n_test:])
+        val_days = set(days[-2 * n_test:-n_test])
         te_idx = all_idx[df["_date"].isin(test_days).to_numpy()]
         va_idx = all_idx[df["_date"].isin(val_days).to_numpy()]
         tr_idx = all_idx[(~df["_date"].isin(test_days | val_days)).to_numpy()]
+        # Remove any trip_id that also appears in train from val/test, so the
+        # model can't memorise a recurring trip and "predict" it on later days.
+        train_trips = set(df["trip_id"].iloc[tr_idx])
+        va_idx = va_idx[~df["trip_id"].iloc[va_idx].isin(train_trips).to_numpy()]
+        te_idx = te_idx[~df["trip_id"].iloc[te_idx].isin(train_trips).to_numpy()]
     else:
-        protocol = "grouped-by-trip (insufficient days for a temporal split)"
+        protocol = f"grouped-by-trip ({n_days} days < {TEMPORAL_MIN_DAYS} needed for temporal)"
         tr_full, te_idx = grouped_split(all_idx, test_size)
         tr_idx, va_idx = grouped_split(tr_full, 0.2)
 

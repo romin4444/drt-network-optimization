@@ -1,39 +1,39 @@
-route_id,weekday_trips,avg_duration_min,avg_distance_km,avg_n_stops,avg_speed_kmh,stops_per_km,weekday_service_hours,median_headway_min,headway_cov,peak_trip_share,region
-900,167,59.59,27.39,53.81,27.79,1.96,165.9,12.0,0.2,0.359,PULSE/Regional
-920,101,73.84,38.35,59.15,31.08,1.54,124.3,20.0,0.3,0.376,PULSE/Regional
-916,108,59.38,30.11,66.23,30.82,2.2,106.9,20.0,0.13,0.333,PULSE/Regional
-915,106,57.03,31.29,55.53,33.27,1.77,100.8,20.0,0.14,0.33,PULSE/Regional
-901,200,28.88,10.92,25.68,23.11,2.35,96.3,8.0,0.5,0.36,PULSE/Regional
-905,117,48.97,26.67,50.78,31.15,1.9,95.5,15.0,0.49,0.385,PULSE/Regional
-902,96,57.55,24.0,46.62,25.18,1.94,92.1,20.0,0.22,0.375,PULSE/Regional
-917,86,55.33,24.03,48.55,26.7,2.02,79.3,30.0,0.14,0.256,PULSE/Regional
-302,85,47.84,24.55,48.66,31.02,1.98,67.8,30.0,0.29,0.388,Whitby
-921,39,80.15,45.07,32.62,33.84,0.72,52.1,20.0,2.29,0.769,PULSE/Regional
-407,67,41.0,19.29,43.81,28.34,2.27,45.8,29.0,0.24,0.343,Oshawa
-421,57,47.96,21.89,44.25,27.55,2.02,45.6,30.0,0.2,0.368,Oshawa
-216,101,26.36,11.62,33.73,26.78,2.9,44.4,17.5,0.39,0.455,Ajax
-121,68,37.93,17.57,37.19,27.89,2.12,43.0,30.0,0.06,0.353,Pickering
-405,66,31.8,15.31,39.55,29.02,2.58,35.0,30.0,0.08,0.379,Oshawa
-410,74,28.19,12.84,42.47,27.43,3.31,34.8,30.0,0.05,0.324,Oshawa
-224,68,30.68,14.1,38.59,28.25,2.74,34.8,30.0,0.07,0.353,Ajax
-502,66,31.64,15.68,29.8,29.84,1.9,34.8,30.0,0.23,0.409,Clarington
-403,87,23.95,11.53,26.9,28.89,2.33,34.7,29.0,0.48,0.437,Oshawa
-N1,31,66.97,42.92,80.45,38.46,1.87,34.6,,,0.0,night
-618,18,102.83,80.64,36.78,47.8,0.46,30.8,90.75,0.23,0.5,Rural
-409,65,27.91,14.75,27.22,31.81,1.85,30.2,30.0,0.04,0.385,Oshawa
-112,56,31.0,18.21,28.54,35.36,1.57,28.9,30.0,0.09,0.429,Pickering
-423,54,28.98,13.96,42.0,28.98,3.01,26.1,30.0,0.05,0.444,Oshawa
-419,65,23.25,9.02,17.43,23.45,1.93,25.2,30.0,0.05,0.369,Oshawa
-118,55,22.56,13.39,17.49,35.92,1.31,20.7,30.0,0.09,0.436,Pickering
-227,25,46.96,19.99,47.52,25.55,2.38,19.6,30.0,1.7,0.76,Ajax
-319,56,19.68,10.37,26.25,31.95,2.53,18.4,30.0,0.08,0.429,Whitby
-301,53,19.4,10.57,27.34,33.12,2.59,17.1,30.0,0.18,0.377,Whitby
-N2,37,26.86,14.84,31.22,33.79,2.1,16.6,,,0.0,night
-211,26,26.5,12.18,30.85,27.6,2.53,11.5,30.0,1.3,0.731,Ajax
-505,30,20.13,8.86,12.2,28.07,1.38,10.1,30.0,1.87,0.7,Clarington
-605,21,24.0,10.35,27.0,25.86,2.61,8.4,44.0,0.34,0.381,Rural
-392,53,8.02,3.2,8.51,24.26,2.66,7.1,30.0,0.07,0.453,Whitby
-507,12,30.17,21.1,18.33,42.05,0.87,6.0,60.0,1.18,0.667,Clarington
-101,16,20.69,10.1,24.5,29.46,2.43,5.5,30.0,0.07,0.625,Pickering
-306,12,26.75,14.0,28.0,31.54,2.0,5.4,30.0,0.04,0.833,Whitby
-315,11,11.0,5.46,11.0,29.8,2.01,2.0,30.0,1.71,0.818,Whitby
+route_id,is_pulse,weekday_trips,avg_speed_kmh,avg_distance_km,avg_n_stops,stops_per_km,median_headway_min,peak_headway_min,p90_headway_min,headway_cov,peak_trip_share,weekday_service_hours,bucket,diagnosis,region
+900,True,167,27.6,27.4,53.8,1.96,12.0,12.0,15.2,0.2,0.4,165.9,A,"Frequent backbone - protect & invest, tighten regularity",PULSE/Regional
+920,False,101,31.2,38.4,59.1,1.54,20.0,20.0,25.0,0.3,0.43,124.3,B,"Frequent candidate - promote to 15-min, consolidate stops",PULSE/Regional
+916,True,108,30.4,30.1,66.2,2.2,20.0,20.0,25.0,0.13,0.41,106.9,A,PULSE corridor - lift to true 15-min all-day standard,PULSE/Regional
+915,True,106,32.9,31.3,55.5,1.77,20.0,20.0,24.7,0.14,0.41,100.8,A,PULSE corridor - lift to true 15-min all-day standard,PULSE/Regional
+901,True,200,22.7,10.9,25.7,2.35,10.0,10.0,20.0,0.5,0.41,96.2,A,"Frequent backbone - protect & invest, tighten regularity",PULSE/Regional
+905,False,117,32.7,26.7,50.8,1.9,15.0,15.0,30.0,0.49,0.42,95.5,B,"Stable base route - retime if CoV high, else maintain",PULSE/Regional
+902,False,96,25.0,24.0,46.6,1.94,20.0,20.0,30.0,0.22,0.42,92.1,B,"Frequent candidate - promote to 15-min, consolidate stops",PULSE/Regional
+917,False,86,26.1,24.0,48.5,2.02,30.0,30.0,35.0,0.14,0.37,79.3,B,"Stable base route - retime if CoV high, else maintain",PULSE/Regional
+302,False,85,30.8,24.6,48.7,1.98,30.0,25.0,30.0,0.29,0.47,67.8,B,"Stable base route - retime if CoV high, else maintain",Whitby
+921,False,39,33.7,45.1,32.6,0.72,20.0,20.0,20.0,2.29,0.83,52.1,C,Coverage commuter - cut to peak-only or interline for 15-min combined,PULSE/Regional
+407,False,67,28.2,19.3,43.8,2.27,30.0,30.0,40.0,0.24,0.38,45.8,B,"Stable base route - retime if CoV high, else maintain",Oshawa
+421,False,57,27.4,21.9,44.2,2.02,30.0,30.0,40.9,0.2,0.39,45.6,B,"Stable base route - retime if CoV high, else maintain",Oshawa
+216,False,101,26.5,11.6,33.7,2.9,16.0,15.0,30.0,0.39,0.48,44.4,B,"Stable base route - retime if CoV high, else maintain",Ajax
+121,False,68,27.8,17.6,37.2,2.12,30.0,30.0,30.0,0.06,0.39,43.0,B,"Stable base route - retime if CoV high, else maintain",Pickering
+405,False,66,28.9,15.3,39.5,2.58,30.0,30.0,32.0,0.08,0.42,35.0,B,"Stable base route - retime if CoV high, else maintain",Oshawa
+410,False,74,27.3,12.8,42.5,3.31,30.0,30.0,30.0,0.05,0.4,34.8,B,"Stable base route - retime if CoV high, else maintain",Oshawa
+224,False,68,27.6,14.1,38.6,2.74,30.0,30.0,30.9,0.07,0.4,34.8,B,"Stable base route - retime if CoV high, else maintain",Ajax
+502,False,66,29.7,15.7,29.8,1.9,30.0,29.0,31.8,0.23,0.44,34.8,B,"Stable base route - retime if CoV high, else maintain",Clarington
+403,False,87,28.9,11.5,26.9,2.33,30.0,20.0,30.0,0.48,0.47,34.7,B,"Stable base route - retime if CoV high, else maintain",Oshawa
+N1,False,31,38.5,42.9,80.5,1.87,,,,,,34.6,B,"Stable base route - retime if CoV high, else maintain",night
+618,False,18,47.1,80.6,36.8,0.46,90.0,91.5,126.0,0.23,0.5,30.8,D,Marginal - candidate for On Demand conversion,Rural
+409,False,65,31.7,14.7,27.2,1.85,30.0,30.0,30.0,0.04,0.42,30.2,B,"Stable base route - retime if CoV high, else maintain",Oshawa
+112,False,56,35.2,18.2,28.5,1.57,30.0,30.0,33.0,0.09,0.45,28.9,B,"Stable base route - retime if CoV high, else maintain",Pickering
+423,False,54,28.9,14.0,42.0,3.01,30.0,30.0,30.0,0.05,0.44,26.1,B,"Stable base route - retime if CoV high, else maintain",Oshawa
+419,False,65,23.3,9.0,17.4,1.93,30.0,30.0,30.5,0.05,0.41,25.2,B,"Stable base route - retime if CoV high, else maintain",Oshawa
+118,False,55,35.6,13.4,17.5,1.31,30.0,30.0,33.0,0.09,0.44,20.7,B,"Stable base route - retime if CoV high, else maintain",Pickering
+227,False,25,25.5,20.0,47.5,2.38,30.0,30.0,78.3,1.7,0.86,19.6,D,Marginal - candidate for On Demand conversion,Ajax
+319,False,56,31.6,10.4,26.2,2.53,30.0,30.0,33.0,0.08,0.44,18.4,B,"Stable base route - retime if CoV high, else maintain",Whitby
+301,False,53,32.7,10.6,27.3,2.59,30.0,31.0,43.2,0.18,0.41,17.1,B,"Stable base route - retime if CoV high, else maintain",Whitby
+N2,False,37,33.1,14.8,31.2,2.1,,,,,,16.6,B,"Stable base route - retime if CoV high, else maintain",night
+211,False,26,27.6,12.2,30.8,2.53,30.0,30.0,146.4,1.3,0.76,11.5,D,Marginal - candidate for On Demand conversion,Ajax
+505,False,30,26.4,8.9,12.2,1.38,30.0,30.0,30.0,1.87,0.72,10.1,D,Marginal - candidate for On Demand conversion,Clarington
+605,False,21,25.9,10.3,27.0,2.61,44.0,45.0,60.0,0.34,0.42,8.4,D,Marginal - candidate for On Demand conversion,Rural
+392,False,53,24.0,3.2,8.5,2.66,30.0,30.0,30.0,0.07,0.45,7.1,B,"Stable base route - retime if CoV high, else maintain",Whitby
+507,False,12,42.0,21.1,18.3,0.87,60.0,60.0,522.2,1.18,0.73,6.0,D,Marginal - candidate for On Demand conversion,Clarington
+101,False,16,29.3,10.1,24.5,2.43,30.0,30.0,30.0,0.07,0.62,5.5,D,Marginal - candidate for On Demand conversion,Pickering
+306,False,12,31.4,14.0,28.0,2.0,30.0,30.0,31.4,0.04,0.83,5.4,D,Marginal - candidate for On Demand conversion,Whitby
+315,False,11,29.8,5.5,11.0,2.01,30.0,30.0,80.9,1.71,0.82,2.0,D,Marginal - candidate for On Demand conversion,Whitby
