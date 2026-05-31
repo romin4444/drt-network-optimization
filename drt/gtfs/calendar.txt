@@ -1,0 +1,7 @@
+service_id,start_date,end_date,monday,tuesday,wednesday,thursday,friday,saturday,sunday
+SatSun_merged_943984,20260413,20260628,0,0,0,0,0,1,1
+Weekday_merged_943985,20260413,20260628,1,1,1,1,1,0,0
+Overnight_merged_943986,20260413,20260628,1,1,1,1,1,1,1
+SatSun_merged_943987,20260317,20260412,0,0,0,0,0,1,1
+Weekday_merged_943988,20260317,20260412,1,1,1,1,1,0,0
+Overnight_merged_943989,20260317,20260412,1,1,1,1,1,1,1

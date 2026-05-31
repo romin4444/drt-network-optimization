@@ -1,0 +1,5 @@
+service_id,date,exception_type
+SatSun_merged_943984,20260518,1
+Weekday_merged_943985,20260518,2
+SatSun_merged_943987,20260403,1
+Weekday_merged_943988,20260403,2

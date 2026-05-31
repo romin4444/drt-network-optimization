@@ -1,0 +1,15 @@
+# Core pipeline
+pandas>=2.0
+numpy>=1.24
+pyarrow>=12.0          # parquet schedule index / RT log / features
+
+# GTFS-RT logging (drt_pipeline.py --logger)
+gtfs-realtime-bindings>=1.0
+requests>=2.28
+
+# On-time-performance model (drt_pipeline.py --train)
+lightgbm>=4.0
+scikit-learn>=1.3
+shap>=0.43             # optional: explain_model()
+
+# Tests use the stdlib (unittest); pytest is optional.

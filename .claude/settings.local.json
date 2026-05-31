@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import pandas, numpy; print\\('pandas', pandas.__version__\\)\")",
+      "Bash(python route_design.py)",
+      "Bash(python route_optimizer.py)",
+      "Bash(python -c \"import drt_pipeline as d; d.baseline_analysis\\(show=True\\)\")",
+      "Bash(python drt_pipeline.py)",
+      "Bash(python drt_pipeline.py --features 2026-05-29)",
+      "Bash(python -c ' *)"
+    ]
+  }
+}
