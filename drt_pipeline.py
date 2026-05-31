@@ -559,8 +559,15 @@ def build_features(date_str: str) -> int:
 # ================================================================================
 # STEP 6 — LightGBM on-time-performance model
 # ================================================================================
-def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2):
+def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2,
+                    exclude_upstream: bool = False):
     """Train an OTP classifier and evaluate it honestly against baselines.
+
+    `exclude_upstream=True` drops `upstream_delay_sec` (the previous stop's actual
+    delay), which is only knowable at real-time inference. This yields the honest
+    *planning-time* performance — what you'd actually get predicting before the
+    bus runs. It will be markedly lower than the real-time number, and that's the
+    point.
 
     Methodology notes (these are what make the numbers trustworthy):
       * Three-way split (train/val/test). The validation set drives early
@@ -612,6 +619,10 @@ def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2):
     cat_cols = ["route_family", "route_id", "direction_id"]
     num_cols = ["hour", "minute", "weekday", "is_weekend", "is_peak_am", "is_peak_pm",
                 "stop_sequence", "frac_of_trip", "upstream_delay_sec"]
+    if exclude_upstream:
+        num_cols = [c for c in num_cols if c != "upstream_delay_sec"]
+        print("  exclude_upstream=True -> dropping upstream_delay_sec "
+              "(honest planning-time view, no real-time leakage)")
     feature_cols = num_cols + cat_cols
     X = df[feature_cols].copy()
     for c in cat_cols:
@@ -633,7 +644,7 @@ def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2):
     # of the boundary in BOTH protocols.
     TEMPORAL_MIN_DAYS = 14
     if n_days >= TEMPORAL_MIN_DAYS:
-        protocol = "temporal (early days train, last ~2 test) + trip-disjoint"
+        protocol = "temporal (earliest days train, latest val/test by day)"
         days = sorted(df["_date"].unique())
         n_test = max(1, n_days // 7)
         test_days = set(days[-n_test:])
@@ -641,11 +652,12 @@ def train_otp_model(date_strs: list[str] | None = None, test_size: float = 0.2):
         te_idx = all_idx[df["_date"].isin(test_days).to_numpy()]
         va_idx = all_idx[df["_date"].isin(val_days).to_numpy()]
         tr_idx = all_idx[(~df["_date"].isin(test_days | val_days)).to_numpy()]
-        # Remove any trip_id that also appears in train from val/test, so the
-        # model can't memorise a recurring trip and "predict" it on later days.
-        train_trips = set(df["trip_id"].iloc[tr_idx])
-        va_idx = va_idx[~df["trip_id"].iloc[va_idx].isin(train_trips).to_numpy()]
-        te_idx = te_idx[~df["trip_id"].iloc[te_idx].isin(train_trips).to_numpy()]
+        # NOTE: we deliberately do NOT force trip-disjoint here. With a recurring
+        # daily schedule the same trip_id appears every day; separating by DAY
+        # already prevents label leakage (each day is a distinct trip instance,
+        # and upstream_delay_sec on a test day uses that day's own earlier stops —
+        # which is exactly what's available at real-time inference). A recurring
+        # trip being structurally late is legitimate signal, not leakage.
     else:
         protocol = f"grouped-by-trip ({n_days} days < {TEMPORAL_MIN_DAYS} needed for temporal)"
         tr_full, te_idx = grouped_split(all_idx, test_size)
@@ -774,6 +786,8 @@ if __name__ == "__main__":
                         help="build features for YYYY-MM-DD")
     parser.add_argument("--train", action="store_true",
                         help="train the LightGBM OTP model")
+    parser.add_argument("--no-upstream", action="store_true",
+                        help="train without upstream_delay_sec (honest planning-time view)")
     args = parser.parse_args()
 
     colab_setup()
@@ -782,6 +796,6 @@ if __name__ == "__main__":
     elif args.features:
         build_features(args.features)
     elif args.train:
-        train_otp_model()
+        train_otp_model(exclude_upstream=args.no_upstream)
     else:
         main()

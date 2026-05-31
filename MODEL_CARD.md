@@ -72,9 +72,35 @@ Equity considerations in this project live in the **planning** layer
 ## Reproducing
 
 ```bash
-python drt_pipeline.py --features 2026-05-29   # build features for a logged day
+python drt_pipeline.py --features 2026-05-29   # build features for the one logged day
 python drt_pipeline.py --train                 # train + evaluate against baselines
 ```
 
 Random seed is fixed (`random_state=42`). Metrics are written to
 `drt/otp_metrics.json`.
+
+## Validating the *pipeline* with simulated data
+
+Because only one real day exists, `simulate_rt.py` generates many days of
+**synthetic** delays from the real schedule, with a documented generative model
+(route/peak/hour structure + a per-trip random walk). This is to validate the
+*pipeline and evaluation*, not to make any claim about real DRT performance.
+
+```bash
+python simulate_rt.py --days 20      # write 20 days of synthetic features
+python drt_pipeline.py --train       # temporal split (15 train / 3 val / 3 test days)
+python drt_pipeline.py --train --no-upstream   # honest planning-time view
+```
+
+On a representative 20-day synthetic run the honest story is clear:
+
+| Model | Test AUC | vs route×hour baseline (0.59) |
+|---|---|---|
+| **Real-time** (with `upstream_delay_sec`) | **~0.90** | strong — but mostly from the real-time feature |
+| **Planning-time** (`--no-upstream`) | **~0.67** | modest, still beats baseline |
+
+The ~0.90 → ~0.67 drop quantifies how much the model leans on the real-time-only
+feature. **Planning-time prediction is genuinely harder**, and these numbers are
+on *simulated* data — real multi-week logging is still required before any of
+this is trusted on live service. The value of the exercise is that it exercises
+the temporal split, the leakage controls, and the baseline comparison end-to-end.

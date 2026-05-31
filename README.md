@@ -156,6 +156,21 @@ model is a validated *scaffold*, not yet a trustworthy predictor. It is a
 real-time nowcaster and is **not consumed by the planning path** (see the scope
 note above). Several weeks of logging are needed before its metrics mean anything.
 
+To validate the *pipeline* in the meantime, [`simulate_rt.py`](simulate_rt.py)
+generates many days of **synthetic** delays from the real schedule so the
+temporal split and leakage controls can be exercised end-to-end:
+
+```bash
+python simulate_rt.py --days 20             # synthetic multi-day features
+python drt_pipeline.py --train              # temporal split, real-time features  -> AUC ~0.90
+python drt_pipeline.py --train --no-upstream  # honest planning-time view          -> AUC ~0.67
+```
+
+The ~0.90 → ~0.67 gap (vs a 0.59 route×hour baseline) honestly shows how much the
+model leans on the real-time-only `upstream_delay_sec` feature — and that
+planning-time prediction is genuinely harder. **These numbers are on simulated
+data**; they validate the machinery, not real-world accuracy.
+
 ## 📂 Key outputs (`drt/map_data/`)
 - `DRT_PLAN.md` — the decision-ready brief
 - `route_scorecard.csv` — per-route diagnostics + bucket

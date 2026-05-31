@@ -1,22 +1,22 @@
 {
-  "n_rows": 6812,
-  "n_days": 1,
-  "protocol": "grouped-by-trip (1 days < 14 needed for temporal)",
-  "test_auc": 0.9980405707868345,
-  "test_pr_auc": 0.9996123661174304,
-  "test_accuracy": 0.991941391941392,
-  "test_f1": 0.9951944080384447,
-  "baseline_majority_accuracy": 0.8366300366300367,
-  "baseline_routehour_auc": 0.5262422152937574,
-  "on_time_base_rate": 0.7745185848634124,
+  "n_rows": 1901249,
+  "n_days": 21,
+  "protocol": "temporal (earliest days train, latest val/test by day)",
+  "test_auc": 0.6658870253795541,
+  "test_pr_auc": 0.9079939471347027,
+  "test_accuracy": 0.5766355794824585,
+  "test_f1": 0.6842024728770988,
+  "baseline_majority_accuracy": 0.8283717253387236,
+  "baseline_routehour_auc": 0.585027018887239,
+  "on_time_base_rate": 0.809518447542523,
   "confusion_matrix": [
     [
-      215,
-      8
+      23586,
+      10717
     ],
     [
-      3,
-      1139
+      73900,
+      91665
     ]
   ]
 }
