@@ -99,9 +99,17 @@ def optimize(scorecard: pd.DataFrame | None = None,
         active_vehicles = peak_vehicles(current_rt_cycle, peak_hw) or 1
 
         # ---- target service category ----
+        # "Frequent candidate" = a bucket-B route worth upgrading to 15-min. The
+        # rule is data-driven (no hard-coded route numbers, which rot when DRT
+        # renumbers): qualify on arterial stop density OR an already-tight headway
+        # (a route running <= frequent_promote_headway already shows the demand to
+        # justify a 15-min standard).
+        promote_hw = cfg.STANDARDS["frequent_promote_headway_min"]
+        already_frequent = (not np.isnan(med_hw)) and med_hw <= promote_hw
+        arterial = stops_per_km >= cfg.STANDARDS["stops_per_km_arterial"]
         if bucket == "A":
             target_hw, category = cfg.STANDARDS["pulse_min_freq"], "Frequent Backbone"
-        elif bucket == "B" and (stops_per_km >= 2.5 or rid in ["121", "319", "410"]):
+        elif bucket == "B" and (arterial or already_frequent):
             target_hw, category = cfg.STANDARDS["frequent_target"], "Frequent Candidate"
         elif bucket == "D" or (bucket == "C" and trips <= 30):
             target_hw, category = 0.0, "Marginal (On-Demand candidate)"

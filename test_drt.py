@@ -131,6 +131,27 @@ class TestOptimizerMath(unittest.TestCase):
         self.assertEqual(cfg.annualized_bus_capital(),
                          cfg.COST["bus_capital"] / cfg.COST["bus_life_years"])
 
+    def _bcard(self, rid, stops_per_km, med_hw):
+        sc = pd.DataFrame([{
+            "route_id": rid, "is_pulse": False, "weekday_trips": 120,
+            "avg_speed_kmh": 27, "avg_distance_km": 12, "avg_n_stops": 30,
+            "stops_per_km": stops_per_km, "median_headway_min": med_hw,
+            "peak_headway_min": med_hw, "p90_headway_min": med_hw + 5,
+            "headway_cov": 0.2, "peak_trip_share": 0.4,
+            "weekday_service_hours": 70, "bucket": "B", "diagnosis": "x",
+        }])
+        eq = pd.DataFrame([{"route_id": rid, "unique_coverage": 0.1,
+                            "coverage_tier": "REDUNDANT (safe to restructure)"}])
+        return ro.optimize(scorecard=sc, equity_df=eq).iloc[0]
+
+    def test_promotion_is_data_driven_not_hardcoded(self):
+        # Arterial density -> Frequent Candidate; low density + 30-min -> Base.
+        # No route-number list is consulted (the old code hard-coded 121/319/410).
+        self.assertEqual(self._bcard("777", 3.0, 30)["category"], "Frequent Candidate")
+        self.assertEqual(self._bcard("778", 1.5, 30)["category"], "Base Coverage / Commuter")
+        # already-tight headway promotes even at low density
+        self.assertEqual(self._bcard("779", 1.5, 18)["category"], "Frequent Candidate")
+
     def test_on_demand_frees_but_not_all_buses(self):
         # End-to-end on a synthetic scorecard: a marginal route converts to
         # on-demand, which must (a) still need >=1 vehicle and (b) cost > 0.

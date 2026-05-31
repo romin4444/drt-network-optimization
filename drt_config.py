@@ -36,6 +36,7 @@ STANDARDS = {
     "pulse_min_freq": 15,          # PULSE minimum headway (min)
     "base_min_freq": 30,           # Base minimum headway
     "frequent_target": 15,         # Frequent Network target headway
+    "frequent_promote_headway_min": 20,  # a B route already <=20min is a 15-min candidate
     "speed_min": 22,               # km/h; below this flags route deviation
     "cov_frequent": 0.21,          # TCQSM LOS A regularity
     "cov_base": 0.30,              # acceptable regularity for base

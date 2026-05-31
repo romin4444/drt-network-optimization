@@ -109,6 +109,24 @@ def colab_setup():
 # HELPERS — t_to_sec, haversine_km, route_family, current_weekday_services are
 # imported from drt_config (single source of truth). See imports at the top.
 # ================================================================================
+import re as _re
+
+# Optional regex (set DRT_TRIPID_STRIP_RE) whose match is stripped from the END
+# of a trip_id before joining RT actuals to the static schedule. Lets you align
+# feeds where RT appends a run/version suffix without code changes.
+_TRIPID_STRIP_RE = os.environ.get("DRT_TRIPID_STRIP_RE")
+
+
+def normalize_trip_id(tid):
+    """Normalise a trip_id for the RT<->schedule join: trim whitespace and,
+    if DRT_TRIPID_STRIP_RE is set, strip a trailing run/version suffix."""
+    if tid is None or (isinstance(tid, float) and math.isnan(tid)):
+        return tid
+    s = str(tid).strip()
+    if _TRIPID_STRIP_RE:
+        s = _re.sub(_TRIPID_STRIP_RE + r"$", "", s)
+    return s
+
 
 # ================================================================================
 # STEP 1 — Extract / download the static GTFS
@@ -475,14 +493,23 @@ def build_features(date_str: str) -> int:
         print(f"no actuals on {date_str}")
         return 0
 
+    # Normalise trip_ids on BOTH sides before the join. Real GTFS-RT feeds often
+    # send a trip_id that differs from the static one only by whitespace, case,
+    # or a trailing run/version suffix (e.g. "..._Timetable_-_2026-04"). Matching
+    # raw can silently collapse the join. The normaliser is overridable via the
+    # DRT_TRIPID_STRIP_RE env var (a regex whose match is stripped from the tail).
+    sched = sched.copy(); actuals = actuals.copy()
+    sched["_tid"] = sched["trip_id"].map(normalize_trip_id)
+    actuals["_tid"] = actuals["trip_id"].map(normalize_trip_id)
+
     joined = sched.merge(
-        actuals[["trip_id", "stop_id", "stop_sequence", "actual_arr_unix", "vehicle_id"]],
-        on=["trip_id", "stop_id", "stop_sequence"], how="inner",
+        actuals[["_tid", "stop_id", "stop_sequence", "actual_arr_unix", "vehicle_id"]],
+        on=["_tid", "stop_id", "stop_sequence"], how="inner",
     )
 
-    # Guard the fragile exact-key join: warn if it collapsed (RT trip_ids not
-    # matching the static feed, or current_stop_sequence missing/misaligned is
-    # common in real feeds). A near-empty join is a red flag, not a clean run.
+    # Guard the fragile join: warn if it collapsed (trip_ids not aligning, or
+    # current_stop_sequence missing/misaligned is common in real feeds). A
+    # near-empty join is a red flag, not a clean run.
     match_rate = len(joined) / max(1, len(actuals))
     if joined.empty or match_rate < 0.05:
         print(f"WARNING {date_str}: RT<->schedule join matched only {len(joined)} of "
