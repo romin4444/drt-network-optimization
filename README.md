@@ -178,5 +178,11 @@ data**; they validate the machinery, not real-world accuracy.
 - `route_optimization_scorecard.csv` — costed fleet plan
 - `route_bundle.json` — data behind the interactive map
 
+## 🔗 Related work
+
+[`multimodal-financial-crisis-prediction`](https://github.com/romin4444/multimodal-financial-crisis-prediction) applies the same principle — leakage-free evaluation, honest baselines, reported negative results — to financial markets: a walk-forward crisis-detection and stock-direction system. The headline finding mirrors this one: a rigorous harness consistently exposes what the model *can't* do (stock direction: no reliable edge, consistent with weak-form EMH) while isolating the one signal that actually holds (a Financial Stress Index that reproduces STLFSI at r = 0.823).
+
+---
+
 ## 📄 License
 MIT (code) — see [LICENSE](LICENSE). Transit data © Durham Region Open Data.
