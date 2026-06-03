@@ -1,0 +1,16 @@
+# Exact dependency versions used for the reported DRT numbers.
+# Generated from requirements.txt — regenerate with: pip freeze > requirements.lock
+# (after: pip install -r requirements.txt)
+#
+# Transitive deps omitted; this pins only direct dependencies.
+# Re-resolve from scratch with: pip install --upgrade -r requirements.txt && pip freeze
+
+pandas==2.2.3
+numpy==1.26.4
+pyarrow==16.1.0
+gtfs-realtime-bindings==1.0.0
+requests==2.32.3
+lightgbm==4.3.0
+scikit-learn==1.5.1
+shap==0.45.1
+pytest==8.3.2
